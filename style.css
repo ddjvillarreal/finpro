@@ -531,6 +531,179 @@ body {
     font-style: italic;
 }
 
+/* ===== ESTILOS NUEVOS PARA SISTEMA ADMIN ===== */
+
+/* Login hint para credenciales */
+.login-hint {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    text-align: center;
+    margin-top: 16px;
+    padding: 12px;
+    background: var(--surface-light);
+    border-radius: 8px;
+    border-left: 4px solid var(--warning);
+}
+
+/* Badge de rol de usuario */
+.user-role {
+    color: var(--primary);
+    font-size: 0.9rem;
+    margin-right: 12px;
+    font-weight: 600;
+}
+
+.user-role-badge {
+    background: var(--primary);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    margin-left: 8px;
+}
+
+/* Información de permisos de usuario */
+.user-permissions {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    margin-top: 4px;
+}
+
+/* Lista de usuarios */
+.users-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.user-item {
+    background: var(--surface);
+    padding: 16px;
+    border-radius: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: var(--shadow);
+}
+
+.user-info {
+    flex: 1;
+}
+
+.user-info h4 {
+    font-weight: 600;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+}
+
+.user-actions {
+    display: flex;
+    gap: 8px;
+}
+
+/* Checkbox personalizado */
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    gap: 8px;
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--primary);
+}
+
+/* Botones de acción específicos */
+.btn-icon.warning:hover {
+    background: var(--warning);
+    color: white;
+}
+
+.btn-icon.success:hover {
+    background: var(--success);
+    color: white;
+}
+
+.btn-icon.danger:hover {
+    background: var(--danger);
+    color: white;
+}
+
+/* Estados de usuario */
+.user-item.admin {
+    border-left: 4px solid var(--primary);
+}
+
+.user-item.editor {
+    border-left: 4px solid var(--success);
+}
+
+.user-item.viewer {
+    border-left: 4px solid var(--text-secondary);
+}
+
+/* Mejoras en los formularios de modales */
+.form-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    padding: 0 24px 24px 24px;
+}
+
+.btn-secondary {
+    padding: 12px 24px;
+    background: var(--surface-light);
+    color: var(--text);
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.btn-secondary:hover {
+    background: var(--border);
+}
+
+/* Indicadores de estado */
+.status-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 8px;
+}
+
+.status-active {
+    background: var(--success);
+}
+
+.status-inactive {
+    background: var(--danger);
+}
+
+.status-pending {
+    background: var(--warning);
+}
+
+/* Mejoras en la navegación para admin */
+.nav-item.admin-feature {
+    position: relative;
+}
+
+.nav-item.admin-feature::after {
+    content: "👑";
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    font-size: 0.6rem;
+}
+
 /* Responsive */
 @media (max-width: 480px) {
     .auth-form {
@@ -549,6 +722,28 @@ body {
     .modal-content {
         margin: 20px;
     }
+    
+    .user-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+    
+    .user-actions {
+        align-self: flex-end;
+    }
+    
+    .header-content {
+        flex-direction: column;
+        gap: 12px;
+        align-items: flex-start;
+    }
+    
+    .header-right {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
 }
 
 /* Mejoras de accesibilidad */
@@ -558,4 +753,78 @@ body {
         animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
     }
+}
+
+/* Scrollbar personalizado */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--background);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--surface-light);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--border);
+}
+
+/* Focus visible para mejor accesibilidad */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
+/* Mejoras en los tooltips */
+[title] {
+    position: relative;
+}
+
+[title]:hover::after {
+    content: attr(title);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--surface);
+    color: var(--text);
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    white-space: nowrap;
+    z-index: 1000;
+    border: 1px solid var(--border);
+}
+
+/* Animaciones suaves para transiciones de estado */
+.view,
+.page,
+.modal {
+    transition: opacity 0.3s ease;
+}
+
+/* Estados de carga mejorados */
+.loading-overlay {
+    backdrop-filter: blur(4px);
+}
+
+/* Mejoras en los botones para estados deshabilitados */
+.btn-primary:disabled,
+.btn-secondary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.btn-primary:disabled:hover {
+    background: var(--primary);
+}
+
+.btn-secondary:disabled:hover {
+    background: var(--surface-light);
 }
