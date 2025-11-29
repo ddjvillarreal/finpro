@@ -3,72 +3,62 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FinPro - Control Financiero</title>
+    <title>FinPro - Sistema Admin</title>
     <meta name="theme-color" content="#0f172a">
-    <meta name="description" content="Controla tus finanzas personales con FinPro">
+    <meta name="description" content="Sistema administrativo FinPro">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- Vista de Login -->
+    <!-- Vista de Login Admin -->
     <div id="login-view" class="view active">
         <div class="auth-container">
             <div class="auth-header">
-                <div class="logo">💰 FinPro</div>
-                <h1>Controla Tus Finanzas</h1>
-                <p>Como Bluecoins, pero completamente gratis</p>
+                <div class="logo">👑 FinPro</div>
+                <h1>Sistema Administrativo</h1>
+                <p>Solo usuarios autorizados</p>
             </div>
             
-            <!-- FORMULARIO LOGIN - VISIBLE INICIALMENTE -->
-            <form id="login-form" class="auth-form">
+            <form id="admin-login-form" class="auth-form">
                 <div class="input-group">
-                    <input type="email" id="login-email" placeholder="Correo electrónico" required>
+                    <input type="email" id="admin-email" placeholder="Email administrativo" required>
                 </div>
                 <div class="input-group">
-                    <input type="password" id="login-password" placeholder="Contraseña" required>
+                    <input type="password" id="admin-password" placeholder="Contraseña" required>
                 </div>
-                <button type="submit" class="btn-primary">Iniciar Sesión</button>
-            </form>
-
-            <!-- FORMULARIO REGISTRO - OCULTO INICIALMENTE -->
-            <form id="register-form" class="auth-form hidden">
-                <div class="input-group">
-                    <input type="text" id="register-name" placeholder="Nombre completo" required>
-                </div>
-                <div class="input-group">
-                    <input type="email" id="register-email" placeholder="Correo electrónico" required>
-                </div>
-                <div class="input-group">
-                    <input type="password" id="register-password" placeholder="Contraseña (mínimo 6 caracteres)" required minlength="6">
-                </div>
-                <button type="submit" class="btn-primary">Crear Cuenta</button>
+                <button type="submit" class="btn-primary">Acceder al Sistema</button>
             </form>
 
             <div class="auth-footer">
-                <button id="toggle-auth" class="btn-link" type="button">¿No tienes cuenta? Regístrate</button>
+                <p class="login-hint">Credenciales por defecto: admin@finpro.com / admin123</p>
             </div>
         </div>
     </div>
 
-    <!-- Vista Principal -->
+    <!-- Vista Principal Admin -->
     <div id="main-view" class="view">
         <!-- Header -->
         <header class="header">
             <div class="header-content">
                 <div class="header-left">
-                    <h1 id="current-page-title">Dashboard</h1>
+                    <h1 id="current-page-title">Panel Admin</h1>
                 </div>
                 <div class="header-right">
                     <span id="user-name" class="user-info"></span>
+                    <span id="user-role" class="user-role"></span>
                     <button id="logout-btn" class="btn-icon" title="Cerrar sesión" type="button">🚪</button>
                 </div>
             </div>
         </header>
 
-        <!-- Navegación -->
+        <!-- Navegación Admin -->
         <nav class="bottom-nav">
             <button class="nav-item active" data-page="dashboard" type="button">
                 <span class="nav-icon">📊</span>
                 <span class="nav-label">Resumen</span>
+            </button>
+            <button class="nav-item" data-page="users" type="button">
+                <span class="nav-icon">👥</span>
+                <span class="nav-label">Usuarios</span>
             </button>
             <button class="nav-item" data-page="transactions" type="button">
                 <span class="nav-icon">💸</span>
@@ -77,10 +67,6 @@
             <button class="nav-item" data-page="accounts" type="button">
                 <span class="nav-icon">🏦</span>
                 <span class="nav-label">Cuentas</span>
-            </button>
-            <button class="nav-item" data-page="stats" type="button">
-                <span class="nav-icon">📈</span>
-                <span class="nav-label">Estadísticas</span>
             </button>
         </nav>
 
@@ -107,7 +93,7 @@
 
                 <div class="section">
                     <div class="section-header">
-                        <h3>Cuentas</h3>
+                        <h3>Mis Cuentas</h3>
                         <button class="btn-icon" onclick="showModal('add-account-modal')" type="button">➕</button>
                     </div>
                     <div id="accounts-list" class="accounts-grid"></div>
@@ -119,6 +105,18 @@
                         <button class="btn-icon" onclick="showModal('add-transaction-modal')" type="button">➕</button>
                     </div>
                     <div id="recent-transactions" class="transactions-list"></div>
+                </div>
+            </div>
+
+            <!-- Gestión de Usuarios -->
+            <div id="users-page" class="page">
+                <div class="section-header">
+                    <h3>Gestión de Usuarios</h3>
+                    <button class="btn-primary" onclick="showModal('add-user-modal')" type="button">Nuevo Usuario</button>
+                </div>
+                
+                <div class="users-list" id="users-list">
+                    <div class="no-data">Cargando usuarios...</div>
                 </div>
             </div>
 
@@ -139,31 +137,71 @@
                 </div>
                 <div id="all-accounts" class="accounts-grid"></div>
             </div>
-
-            <!-- Estadísticas -->
-            <div id="stats-page" class="page">
-                <div class="section-header">
-                    <h3>Estadísticas</h3>
-                </div>
-                <div class="stats-container">
-                    <div class="stat-card">
-                        <h3>Distribución de Gastos</h3>
-                        <div id="expense-chart" class="chart-placeholder">
-                            <p>No hay datos suficientes</p>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <h3>Flujo Mensual</h3>
-                        <div id="flow-chart" class="chart-placeholder">
-                            <p>No hay datos suficientes</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </main>
     </div>
 
-    <!-- Modales -->
+    <!-- Modal Cambio Contraseña -->
+    <div id="change-password-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Cambiar Contraseña</h2>
+                <button class="btn-close" onclick="closeModal()" type="button">×</button>
+            </div>
+            <form id="change-password-form">
+                <div class="form-group">
+                    <label for="current-password">Contraseña Actual</label>
+                    <input type="password" id="current-password" required>
+                </div>
+                <div class="form-group">
+                    <label for="new-password">Nueva Contraseña</label>
+                    <input type="password" id="new-password" minlength="6" required>
+                </div>
+                <div class="form-group">
+                    <label for="confirm-password">Confirmar Nueva Contraseña</label>
+                    <input type="password" id="confirm-password" minlength="6" required>
+                </div>
+                <div class="form-group">
+                    <button type="submit" class="btn-primary">Actualizar Contraseña</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Nuevo Usuario -->
+    <div id="add-user-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Nuevo Usuario</h2>
+                <button class="btn-close" onclick="closeModal()" type="button">×</button>
+            </div>
+            <form id="add-user-form">
+                <div class="form-group">
+                    <label for="user-name">Nombre Completo</label>
+                    <input type="text" id="user-name" placeholder="Nombre del usuario" required>
+                </div>
+                <div class="form-group">
+                    <label for="user-email">Email</label>
+                    <input type="email" id="user-email" placeholder="email@ejemplo.com" required>
+                </div>
+                <div class="form-group">
+                    <label for="user-password">Contraseña</label>
+                    <input type="password" id="user-password" minlength="6" placeholder="Mínimo 6 caracteres" required>
+                </div>
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="user-can-edit">
+                        <span class="checkmark"></span>
+                        Permitir editar finanzas principales
+                    </label>
+                </div>
+                <div class="form-group">
+                    <button type="submit" class="btn-primary">Crear Usuario</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modales existentes para transacciones y cuentas -->
     <div id="add-transaction-modal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
