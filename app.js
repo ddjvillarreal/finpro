@@ -2,7 +2,7 @@
 const CONFIG = {
     API_URL: 'https://script.google.com/macros/s/AKfycbyfGbp-r64fRN_rr-Pwls_7Y-4CpQfy7H62pUG31m2LWn2IOalcRcFK_Ut55Pwlbom-/exec',
     APP_NAME: 'FinPro',
-    VERSION: '1.0.1'
+    VERSION: '1.0.2'
 };
 
 // Estado global de la aplicación
@@ -38,22 +38,27 @@ const Utils = {
         });
     },
 
-    // Generar ID único
-    generateId(prefix = '') {
-        return prefix + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-    },
-
-    // Mostrar notificación
+    // Mostrar notificación mejorada
     showNotification(message, type = 'info') {
         // Remover notificaciones existentes
         document.querySelectorAll('.notification').forEach(n => n.remove());
 
         const notification = document.createElement('div');
         notification.className = `notification notification-${type}`;
+        
+        // Iconos según tipo
+        const icons = {
+            success: '✅',
+            error: '❌',
+            warning: '⚠️',
+            info: 'ℹ️'
+        };
+        
         notification.innerHTML = `
             <div class="notification-content">
-                <span>${message}</span>
-                <button onclick="this.parentElement.parentElement.remove()">×</button>
+                <span class="notification-icon">${icons[type] || icons.info}</span>
+                <span class="notification-message">${message}</span>
+                <button class="notification-close" onclick="this.parentElement.parentElement.remove()">×</button>
             </div>
         `;
 
@@ -62,21 +67,54 @@ const Utils = {
             position: fixed;
             top: 20px;
             right: 20px;
-            background: ${type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : '#3b82f6'};
+            background: ${type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : type === 'warning' ? '#f59e0b' : '#3b82f6'};
             color: white;
-            padding: 12px 16px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 16px;
+            border-radius: 12px;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);
             z-index: 10000;
-            max-width: 300px;
+            max-width: 400px;
+            min-width: 300px;
+            border-left: 4px solid ${type === 'error' ? '#dc2626' : type === 'success' ? '#059669' : type === 'warning' ? '#d97706' : '#2563eb'};
+        `;
+
+        const content = notification.querySelector('.notification-content');
+        content.style.cssText = `
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        `;
+
+        const messageEl = notification.querySelector('.notification-message');
+        messageEl.style.cssText = `
+            flex: 1;
+            font-size: 14px;
+            line-height: 1.4;
+        `;
+
+        const closeBtn = notification.querySelector('.notification-close');
+        closeBtn.style.cssText = `
+            background: none;
+            border: none;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            padding: 0;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         `;
 
         document.body.appendChild(notification);
+        
+        // Auto-remover después de 6 segundos
         setTimeout(() => {
             if (notification.parentElement) {
                 notification.remove();
             }
-        }, 5000);
+        }, 6000);
     },
 
     // Mostrar/ocultar loading
@@ -88,13 +126,21 @@ const Utils = {
             loadingEl.classList.add('hidden');
         }
         AppState.loading = loading;
+    },
+
+    // Validar email
+    isValidEmail(email) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
     }
 };
 
-// Servicio de API
+// Servicio de API - MEJORADO CON MANEJO DE ERRORES EN ESPAÑOL
 const ApiService = {
     async request(action, data = {}) {
         try {
+            console.log(`📡 Enviando solicitud a API: ${action}`, data);
+            
             const response = await fetch(CONFIG.API_URL, {
                 method: 'POST',
                 headers: {
@@ -109,26 +155,97 @@ const ApiService = {
                 })
             });
 
+            if (!response.ok) {
+                throw new Error(`Error de conexión: ${response.status} ${response.statusText}`);
+            }
+
             const result = await response.json();
             
             if (!result.success) {
-                throw new Error(result.error || 'Error en la solicitud');
+                // Traducir mensajes de error comunes
+                let errorMessage = result.error || 'Error desconocido en el servidor';
+                
+                // Remover emojis si existen para mejor procesamiento
+                const cleanErrorMessage = errorMessage.replace(/[❌✅⚠️ℹ️]/g, '').trim();
+                
+                // Mapeo de errores comunes
+                const errorMap = {
+                    'User already exists': 'Ya existe un usuario con este email',
+                    'Invalid credentials': 'Email o contraseña incorrectos',
+                    'Token expirado': 'Tu sesión ha expirado. Por favor inicia sesión nuevamente',
+                    'Token inválido': 'Sesión inválida. Por favor inicia sesión nuevamente',
+                    'Failed to fetch': 'No se puede conectar al servidor. Verifica tu conexión a internet',
+                    'NetworkError': 'Error de red. Verifica tu conexión a internet',
+                    'All fields are required': 'Todos los campos son requeridos',
+                    'Invalid email format': 'El formato del email no es válido',
+                    'Password must be at least 6 characters': 'La contraseña debe tener al menos 6 caracteres'
+                };
+
+                // Buscar coincidencias en el mapa de errores
+                for (const [key, value] of Object.entries(errorMap)) {
+                    if (cleanErrorMessage.includes(key)) {
+                        errorMessage = value;
+                        break;
+                    }
+                }
+
+                throw new Error(errorMessage);
             }
 
+            console.log(`✅ Respuesta exitosa de API: ${action}`, result.data);
             return result.data;
+            
         } catch (error) {
-            console.error('API Error:', error);
-            Utils.showNotification(error.message || 'Error de conexión', 'error');
+            console.error('❌ Error en API:', error);
+            
+            // Mensajes de error amigables en español
+            let userFriendlyMessage = error.message;
+            
+            if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                userFriendlyMessage = '🔌 Error de conexión: No se pudo conectar al servidor. ' +
+                                    'Verifica que:\n' +
+                                    '• Tu conexión a internet esté activa\n' +
+                                    '• La URL de la API sea correcta\n' +
+                                    '• Google Apps Script esté desplegado correctamente';
+            } else if (error.message.includes('404')) {
+                userFriendlyMessage = '🔍 No se encontró el servidor. Verifica la URL de la API';
+            } else if (error.message.includes('500')) {
+                userFriendlyMessage = '⚙️ Error interno del servidor. Revisa los logs de Google Apps Script';
+            } else if (error.message.includes('403')) {
+                userFriendlyMessage = '🔐 Acceso denegado. Verifica los permisos de Google Apps Script';
+            }
+
+            Utils.showNotification(userFriendlyMessage, 'error');
             throw error;
         }
     },
 
     // Autenticación
     async login(email, password) {
+        if (!email || !password) {
+            throw new Error('❌ Email y contraseña son requeridos');
+        }
+        
+        if (!Utils.isValidEmail(email)) {
+            throw new Error('❌ El formato del email no es válido');
+        }
+        
         return this.request('login', { email, password });
     },
 
     async register(userData) {
+        if (!userData.email || !userData.password || !userData.name) {
+            throw new Error('❌ Todos los campos son requeridos');
+        }
+        
+        if (!Utils.isValidEmail(userData.email)) {
+            throw new Error('❌ El formato del email no es válido');
+        }
+        
+        if (userData.password.length < 6) {
+            throw new Error('❌ La contraseña debe tener al menos 6 caracteres');
+        }
+        
         return this.request('register', userData);
     },
 
@@ -138,6 +255,14 @@ const ApiService = {
     },
 
     async saveTransaction(transaction) {
+        if (!transaction.type || !transaction.accountId || !transaction.amount) {
+            throw new Error('❌ Tipo, cuenta y monto son requeridos');
+        }
+        
+        if (isNaN(transaction.amount) || transaction.amount <= 0) {
+            throw new Error('❌ El monto debe ser un número positivo');
+        }
+        
         return this.request('save-transaction', transaction);
     },
 
@@ -146,6 +271,14 @@ const ApiService = {
     },
 
     async saveAccount(account) {
+        if (!account.name || !account.currency || !account.type) {
+            throw new Error('❌ Nombre, moneda y tipo son requeridos');
+        }
+        
+        if (isNaN(account.initialBalance)) {
+            throw new Error('❌ El saldo inicial debe ser un número válido');
+        }
+        
         return this.request('save-account', account);
     },
 
@@ -158,6 +291,9 @@ const ApiService = {
     }
 };
 
+// El resto del código de app.js se mantiene IGUAL desde aquí...
+// [TODO EL CÓDIGO RESTANTE DE app.js QUE YA TENÍAS]
+
 // Gestión de Autenticación - CORREGIDO
 const AuthManager = {
     // Verificar si hay sesión activa
@@ -166,9 +302,15 @@ const AuthManager = {
         const user = localStorage.getItem('finpro_user');
         
         if (token && user) {
-            AppState.token = token;
-            AppState.user = JSON.parse(user);
-            return true;
+            try {
+                AppState.token = token;
+                AppState.user = JSON.parse(user);
+                return true;
+            } catch (error) {
+                console.error('Error parsing stored user data:', error);
+                this.logout();
+                return false;
+            }
         }
         return false;
     },
@@ -185,11 +327,11 @@ const AuthManager = {
             localStorage.setItem('finpro_token', result.token);
             localStorage.setItem('finpro_user', JSON.stringify(result.user));
             
-            Utils.showNotification(`Bienvenido ${result.user.name}`, 'success');
+            Utils.showNotification(`✅ Bienvenido ${result.user.name}`, 'success');
             this.showMainApp();
             return true;
         } catch (error) {
-            Utils.showNotification('Credenciales incorrectas', 'error');
+            // El error ya fue mostrado por ApiService
             return false;
         } finally {
             Utils.setLoading(false);
@@ -202,11 +344,11 @@ const AuthManager = {
             Utils.setLoading(true);
             const result = await ApiService.register(userData);
             
-            Utils.showNotification('Cuenta creada exitosamente. Ahora inicia sesión.', 'success');
+            Utils.showNotification('✅ Cuenta creada exitosamente. Ahora inicia sesión.', 'success');
             this.showLoginForm();
             return true;
         } catch (error) {
-            Utils.showNotification('Error al crear la cuenta: ' + error.message, 'error');
+            // El error ya fue mostrado por ApiService
             return false;
         } finally {
             Utils.setLoading(false);
@@ -222,10 +364,11 @@ const AuthManager = {
         localStorage.removeItem('finpro_token');
         localStorage.removeItem('finpro_user');
         
+        Utils.showNotification('👋 Sesión cerrada correctamente', 'info');
         this.showLoginView();
     },
 
-    // Mostrar vista de login - CORREGIDO
+    // Mostrar vista de login
     showLoginView() {
         document.getElementById('login-view').classList.add('active');
         document.getElementById('main-view').classList.remove('active');
@@ -260,7 +403,7 @@ const AuthManager = {
         DataManager.loadInitialData();
     },
 
-    // Alternar entre login y registro - CORREGIDO
+    // Alternar entre login y registro
     toggleAuthMode() {
         if (document.getElementById('login-form').classList.contains('hidden')) {
             this.showLoginForm();
