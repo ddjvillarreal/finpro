@@ -1,9 +1,8 @@
-// Configuración de la aplicación - VERIFICA ESTA URL
+// Configuración de la aplicación
 const CONFIG = {
-    // ⚠️ REEMPLAZA ESTA URL CON LA TUYA:
-    API_URL: 'https://script.google.com/macros/s/AKfycbw1EwEVkeEQmTaxrcJhOz1WoZ8dU2mi1BfvQYs9bKdrYbKUmWFty85eAZcYA0gI86XS/exec',
+    API_URL: 'https://script.google.com/macros/s/AKfycbwJt5Y7Ni7p77GuFT4Q56XqsF0Yq0Qn17ty1Z9YyknP-3MtiAErRS34qBv7Fy7_YaP6/exec',
     APP_NAME: 'FinPro Admin',
-    VERSION: '3.0.0'
+    VERSION: '1.0.0'
 };
 
 // Estado global de la aplicación
@@ -39,7 +38,9 @@ const Utils = {
     },
 
     showNotification(message, type = 'info') {
-        document.querySelectorAll('.notification').forEach(n => n.remove());
+        // Remover notificaciones existentes
+        const existingNotifications = document.querySelectorAll('.notification');
+        existingNotifications.forEach(n => n.remove());
 
         const notification = document.createElement('div');
         notification.className = `notification notification-${type}`;
@@ -59,28 +60,32 @@ const Utils = {
             </div>
         `;
 
-        notification.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: ${type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : type === 'warning' ? '#f59e0b' : '#3b82f6'};
-            color: white;
-            padding: 16px;
-            border-radius: 12px;
-            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);
-            z-index: 10000;
-            max-width: 400px;
-            min-width: 300px;
-            border-left: 4px solid ${type === 'error' ? '#dc2626' : type === 'success' ? '#059669' : type === 'warning' ? '#d97706' : '#2563eb'};
-        `;
+        // Estilos para la notificación
+        Object.assign(notification.style, {
+            position: 'fixed',
+            top: '20px',
+            right: '20px',
+            background: type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : type === 'warning' ? '#f59e0b' : '#3b82f6',
+            color: 'white',
+            padding: '16px',
+            borderRadius: '12px',
+            boxShadow: '0 10px 15px -3px rgba(0,0,0,0.3)',
+            zIndex: '10000',
+            maxWidth: '400px',
+            minWidth: '300px',
+            borderLeft: `4px solid ${type === 'error' ? '#dc2626' : type === 'success' ? '#059669' : type === 'warning' ? '#d97706' : '#2563eb'}`
+        });
 
         const closeBtn = notification.querySelector('.notification-close');
         closeBtn.addEventListener('click', () => notification.remove());
 
         document.body.appendChild(notification);
         
+        // Auto-remover después de 6 segundos
         setTimeout(() => {
-            if (notification.parentElement) notification.remove();
+            if (notification.parentElement) {
+                notification.remove();
+            }
         }, 6000);
     },
 
@@ -100,7 +105,7 @@ const Utils = {
     }
 };
 
-// Servicio de API - VERSIÓN MEJORADA CON DIAGNÓSTICO
+// Servicio de API
 const ApiService = {
     async request(action, data = {}) {
         try {
@@ -109,11 +114,6 @@ const ApiService = {
             // Verificar conexión a internet
             if (!navigator.onLine) {
                 throw new Error('🔌 No hay conexión a internet. Verifica tu conexión.');
-            }
-            
-            // Verificar que la URL esté configurada
-            if (!CONFIG.API_URL || CONFIG.API_URL.includes('AKfycbw1EwEVkeEQmTaxrcJhOz1WoZ8dU2mi1BfvQYs9bKdrYbKUmWFty85eAZcYA0gI86XS')) {
-                throw new Error('❌ URL de API no configurada. Actualiza CONFIG.API_URL con tu URL real de Google Apps Script.');
             }
             
             const requestData = {
@@ -126,9 +126,6 @@ const ApiService = {
                 requestData.data.token = AppState.token;
             }
             
-            console.log('🔗 URL de destino:', CONFIG.API_URL);
-            console.log('📦 Datos enviados:', requestData);
-            
             const response = await fetch(CONFIG.API_URL, {
                 method: 'POST',
                 headers: {
@@ -137,72 +134,27 @@ const ApiService = {
                 body: JSON.stringify(requestData)
             });
 
-            console.log('📨 Respuesta HTTP:', response.status, response.statusText);
-
             if (!response.ok) {
-                throw new Error(`Error HTTP ${response.status}: ${response.statusText}`);
+                throw new Error(`Error HTTP: ${response.status}`);
             }
 
             const result = await response.json();
-            console.log('✅ Respuesta del servidor:', result);
             
             if (!result.success) {
-                let errorMessage = result.error || 'Error desconocido en el servidor';
-                
-                // Mapeo de errores comunes
-                const errorMap = {
-                    'User already exists': 'Ya existe un usuario con este email',
-                    'Invalid credentials': 'Email o contraseña incorrectos',
-                    'Token expirado': 'Tu sesión ha expirado',
-                    'Token inválido': 'Sesión inválida',
-                    'Failed to fetch': 'No se puede conectar al servidor',
-                    'All fields are required': 'Todos los campos son requeridos',
-                    'Invalid email format': 'El formato del email no es válido',
-                    'Password must be at least 6 characters': 'La contraseña debe tener al menos 6 caracteres'
-                };
-
-                for (const [key, value] of Object.entries(errorMap)) {
-                    if (errorMessage.includes(key)) {
-                        errorMessage = value;
-                        break;
-                    }
-                }
-
-                throw new Error(errorMessage);
+                throw new Error(result.error || 'Error en el servidor');
             }
 
             return result.data;
             
         } catch (error) {
-            console.error('❌ Error completo en API:', error);
+            console.error('❌ Error en API:', error);
             
-            let userFriendlyMessage = error.message;
-            
-            // Diagnóstico detallado de errores de conexión
-            if (error.message.includes('Failed to fetch') || 
-                error.message.includes('NetworkError') ||
-                error.message.includes('TypeError')) {
-                
-                userFriendlyMessage = 
-                    '🔌 Error de conexión al servidor\n\n' +
-                    '📋 Diagnóstico:\n' +
-                    '• URL usada: ' + CONFIG.API_URL + '\n' +
-                    '• Verifica que:\n' +
-                    '  1. Google Apps Script esté publicado como "Aplicación web"\n' +
-                    '  2. Configuración: "Ejecutar como: Yo", "Acceso: Cualquiera"\n' +
-                    '  3. La URL en CONFIG.API_URL sea la correcta\n' +
-                    '  4. No haya errores en la consola de Google Apps Script\n\n' +
-                    '💡 Solución: Ve a script.google.com → Publicar → Gestionar implementaciones → Obtén la URL correcta';
-                    
-            } else if (error.message.includes('404')) {
-                userFriendlyMessage = '🔍 URL no encontrada (404). Verifica que la URL de Google Apps Script sea correcta.';
-            } else if (error.message.includes('500')) {
-                userFriendlyMessage = '⚙️ Error interno del servidor (500). Revisa los logs de Google Apps Script.';
-            } else if (error.message.includes('403')) {
-                userFriendlyMessage = '🔐 Acceso denegado (403). Verifica que Google Apps Script esté configurado para "Cualquier persona".';
+            let userMessage = error.message;
+            if (error.message.includes('Failed to fetch')) {
+                userMessage = 'Error de conexión. Verifica tu conexión a internet y que la URL de la API sea correcta.';
             }
 
-            Utils.showNotification(userFriendlyMessage, 'error');
+            Utils.showNotification(userMessage, 'error');
             throw error;
         }
     },
@@ -223,20 +175,12 @@ const ApiService = {
             throw new Error('Email y contraseña son requeridos');
         }
         
-        if (!Utils.isValidEmail(email)) {
-            throw new Error('El formato del email no es válido');
-        }
-        
         return this.request('admin-login', { email, password });
     },
 
     async changeAdminPassword(currentPassword, newPassword) {
         if (!currentPassword || !newPassword) {
             throw new Error('Ambas contraseñas son requeridas');
-        }
-        
-        if (newPassword.length < 6) {
-            throw new Error('La nueva contraseña debe tener al menos 6 caracteres');
         }
         
         return this.request('change-admin-password', { currentPassword, newPassword });
@@ -246,14 +190,6 @@ const ApiService = {
     async createUser(userData) {
         if (!userData.email || !userData.password || !userData.name) {
             throw new Error('Todos los campos son requeridos');
-        }
-        
-        if (!Utils.isValidEmail(userData.email)) {
-            throw new Error('El formato del email no es válido');
-        }
-        
-        if (userData.password.length < 6) {
-            throw new Error('La contraseña debe tener al menos 6 caracteres');
         }
         
         return this.request('create-user', userData);
@@ -277,10 +213,6 @@ const ApiService = {
             throw new Error('Tipo, cuenta y monto son requeridos');
         }
         
-        if (isNaN(transaction.amount) || transaction.amount <= 0) {
-            throw new Error('El monto debe ser un número positivo');
-        }
-        
         return this.request('save-transaction', transaction);
     },
 
@@ -291,10 +223,6 @@ const ApiService = {
     async saveAccount(account) {
         if (!account.name || !account.currency || !account.type) {
             throw new Error('Nombre, moneda y tipo son requeridos');
-        }
-        
-        if (isNaN(account.initialBalance)) {
-            throw new Error('El saldo inicial debe ser un número válido');
         }
         
         return this.request('save-account', account);
@@ -332,11 +260,6 @@ const AuthManager = {
     async adminLogin(email, password) {
         try {
             Utils.setLoading(true);
-            
-            // Primero probar la conexión
-            const testResult = await ApiService.testConnection();
-            console.log('🧪 Test conexión:', testResult);
-            
             const result = await ApiService.adminLogin(email, password);
             
             AppState.user = result.user;
@@ -418,20 +341,13 @@ const AuthManager = {
     },
 
     showChangePasswordModal() {
-        ModalManager.showModal('change-password-modal');
+        showModal('change-password-modal');
     },
 
     addPasswordChangeOption() {
-        const headerRight = document.querySelector('.header-right');
-        if (!document.getElementById('change-password-btn')) {
-            const changePassBtn = document.createElement('button');
-            changePassBtn.id = 'change-password-btn';
-            changePassBtn.className = 'btn-icon';
-            changePassBtn.innerHTML = '🔑';
-            changePassBtn.title = 'Cambiar contraseña';
-            changePassBtn.onclick = () => this.showChangePasswordModal();
-            
-            headerRight.insertBefore(changePassBtn, document.getElementById('logout-btn'));
+        const changePassBtn = document.getElementById('change-password-btn');
+        if (changePassBtn) {
+            changePassBtn.style.display = 'block';
         }
     }
 };
@@ -541,7 +457,7 @@ const DataManager = {
         }
 
         container.innerHTML = users.map(user => `
-            <div class="user-item account-item">
+            <div class="user-item">
                 <div class="user-info">
                     <h4>${user.name} <span class="user-role-badge">${user.role}</span></h4>
                     <p>${user.email}</p>
@@ -766,7 +682,6 @@ const EventHandlers = {
         this.initNavigationEvents();
         this.initModalEvents();
         this.initFormEvents();
-        this.initDebugTools();
     },
 
     initAuthEvents() {
@@ -798,6 +713,17 @@ const EventHandlers = {
         if (logoutBtn) {
             logoutBtn.addEventListener('click', () => {
                 AuthManager.logout();
+            });
+        }
+
+        // Test connection
+        const testConnectionBtn = document.getElementById('test-connection-btn');
+        if (testConnectionBtn) {
+            testConnectionBtn.addEventListener('click', async () => {
+                Utils.setLoading(true);
+                const result = await ApiService.testConnection();
+                Utils.setLoading(false);
+                Utils.showNotification(result, result.includes('✅') ? 'success' : 'error');
             });
         }
     },
@@ -836,7 +762,7 @@ const EventHandlers = {
                     date: document.getElementById('transaction-date').value
                 };
                 if (await DataManager.addTransaction(formData)) {
-                    ModalManager.closeModal();
+                    closeModal();
                 }
             });
         }
@@ -853,7 +779,7 @@ const EventHandlers = {
                     initialBalance: parseFloat(document.getElementById('account-balance').value)
                 };
                 if (await DataManager.addAccount(formData)) {
-                    ModalManager.closeModal();
+                    closeModal();
                 }
             });
         }
@@ -870,63 +796,45 @@ const EventHandlers = {
                     canEdit: document.getElementById('user-can-edit').checked
                 };
                 if (await DataManager.createUser(formData)) {
-                    ModalManager.closeModal();
+                    closeModal();
                 }
             });
         }
-    },
-
-    // Herramientas de diagnóstico
-    initDebugTools() {
-        // Agregar botón de prueba de conexión en el login
-        const authFooter = document.querySelector('.auth-footer');
-        if (authFooter && !document.getElementById('test-connection-btn')) {
-            const testBtn = document.createElement('button');
-            testBtn.id = 'test-connection-btn';
-            testBtn.className = 'btn-link';
-            testBtn.textContent = 'Probar conexión con el servidor';
-            testBtn.type = 'button';
-            testBtn.onclick = async () => {
-                Utils.setLoading(true);
-                const result = await ApiService.testConnection();
-                Utils.setLoading(false);
-                Utils.showNotification(result, result.includes('✅') ? 'success' : 'error');
-            };
-            authFooter.appendChild(testBtn);
-        }
     }
 };
 
-// Funciones globales
-window.showModal = function(modalId) {
+// Funciones globales para onclick
+function showModal(modalId) {
     ModalManager.showModal(modalId);
-};
+}
 
-window.closeModal = function() {
+function closeModal() {
     ModalManager.closeModal();
-};
+}
 
-// Inicialización
+// Inicialización de la aplicación
 function initApp() {
     console.log('🚀 Inicializando FinPro Admin...');
-    console.log('🔗 URL API configurada:', CONFIG.API_URL);
     
+    // Verificar autenticación
     if (AuthManager.checkAuth()) {
-        console.log('✅ Admin autenticado encontrado');
+        console.log('✅ Usuario autenticado encontrado');
         AuthManager.showMainApp();
     } else {
-        console.log('🔐 Mostrando login admin');
+        console.log('🔐 No hay usuario autenticado, mostrando login');
         AuthManager.showLoginView();
     }
 
+    // Inicializar event listeners
     try {
         EventHandlers.init();
         console.log('✅ Aplicación inicializada correctamente');
     } catch (error) {
-        console.error('❌ Error al inicializar:', error);
+        console.error('❌ Error al inicializar event handlers:', error);
     }
 }
 
+// Iniciar cuando el DOM esté listo
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initApp);
 } else {
