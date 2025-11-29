@@ -1,5 +1,6 @@
-// Configuración de la aplicación
+// Configuración de la aplicación - VERIFICA ESTA URL
 const CONFIG = {
+    // ⚠️ REEMPLAZA ESTA URL CON LA TUYA:
     API_URL: 'https://script.google.com/macros/s/AKfycbw1EwEVkeEQmTaxrcJhOz1WoZ8dU2mi1BfvQYs9bKdrYbKUmWFty85eAZcYA0gI86XS/exec',
     APP_NAME: 'FinPro Admin',
     VERSION: '3.0.0'
@@ -99,14 +100,20 @@ const Utils = {
     }
 };
 
-// Servicio de API - Versión Simplificada y Robusta
+// Servicio de API - VERSIÓN MEJORADA CON DIAGNÓSTICO
 const ApiService = {
     async request(action, data = {}) {
         try {
-            console.log(`📡 Enviando: ${action}`);
+            console.log(`📡 Enviando solicitud: ${action}`, data);
             
+            // Verificar conexión a internet
             if (!navigator.onLine) {
-                throw new Error('🔌 No hay conexión a internet');
+                throw new Error('🔌 No hay conexión a internet. Verifica tu conexión.');
+            }
+            
+            // Verificar que la URL esté configurada
+            if (!CONFIG.API_URL || CONFIG.API_URL.includes('AKfycbw1EwEVkeEQmTaxrcJhOz1WoZ8dU2mi1BfvQYs9bKdrYbKUmWFty85eAZcYA0gI86XS')) {
+                throw new Error('❌ URL de API no configurada. Actualiza CONFIG.API_URL con tu URL real de Google Apps Script.');
             }
             
             const requestData = {
@@ -114,9 +121,13 @@ const ApiService = {
                 data: data
             };
 
-            if (AppState.token && !['admin-login'].includes(action)) {
+            // Solo agregar token si existe y no es login
+            if (AppState.token && action !== 'admin-login') {
                 requestData.data.token = AppState.token;
             }
+            
+            console.log('🔗 URL de destino:', CONFIG.API_URL);
+            console.log('📦 Datos enviados:', requestData);
             
             const response = await fetch(CONFIG.API_URL, {
                 method: 'POST',
@@ -126,28 +137,83 @@ const ApiService = {
                 body: JSON.stringify(requestData)
             });
 
+            console.log('📨 Respuesta HTTP:', response.status, response.statusText);
+
             if (!response.ok) {
-                throw new Error(`Error HTTP: ${response.status}`);
+                throw new Error(`Error HTTP ${response.status}: ${response.statusText}`);
             }
 
             const result = await response.json();
+            console.log('✅ Respuesta del servidor:', result);
             
             if (!result.success) {
-                throw new Error(result.error || 'Error en el servidor');
+                let errorMessage = result.error || 'Error desconocido en el servidor';
+                
+                // Mapeo de errores comunes
+                const errorMap = {
+                    'User already exists': 'Ya existe un usuario con este email',
+                    'Invalid credentials': 'Email o contraseña incorrectos',
+                    'Token expirado': 'Tu sesión ha expirado',
+                    'Token inválido': 'Sesión inválida',
+                    'Failed to fetch': 'No se puede conectar al servidor',
+                    'All fields are required': 'Todos los campos son requeridos',
+                    'Invalid email format': 'El formato del email no es válido',
+                    'Password must be at least 6 characters': 'La contraseña debe tener al menos 6 caracteres'
+                };
+
+                for (const [key, value] of Object.entries(errorMap)) {
+                    if (errorMessage.includes(key)) {
+                        errorMessage = value;
+                        break;
+                    }
+                }
+
+                throw new Error(errorMessage);
             }
 
             return result.data;
             
         } catch (error) {
-            console.error('❌ Error API:', error);
+            console.error('❌ Error completo en API:', error);
             
-            let userMessage = error.message;
-            if (error.message.includes('Failed to fetch')) {
-                userMessage = 'Error de conexión. Verifica:\n• Tu conexión a internet\n• Que la URL de la API sea correcta';
+            let userFriendlyMessage = error.message;
+            
+            // Diagnóstico detallado de errores de conexión
+            if (error.message.includes('Failed to fetch') || 
+                error.message.includes('NetworkError') ||
+                error.message.includes('TypeError')) {
+                
+                userFriendlyMessage = 
+                    '🔌 Error de conexión al servidor\n\n' +
+                    '📋 Diagnóstico:\n' +
+                    '• URL usada: ' + CONFIG.API_URL + '\n' +
+                    '• Verifica que:\n' +
+                    '  1. Google Apps Script esté publicado como "Aplicación web"\n' +
+                    '  2. Configuración: "Ejecutar como: Yo", "Acceso: Cualquiera"\n' +
+                    '  3. La URL en CONFIG.API_URL sea la correcta\n' +
+                    '  4. No haya errores en la consola de Google Apps Script\n\n' +
+                    '💡 Solución: Ve a script.google.com → Publicar → Gestionar implementaciones → Obtén la URL correcta';
+                    
+            } else if (error.message.includes('404')) {
+                userFriendlyMessage = '🔍 URL no encontrada (404). Verifica que la URL de Google Apps Script sea correcta.';
+            } else if (error.message.includes('500')) {
+                userFriendlyMessage = '⚙️ Error interno del servidor (500). Revisa los logs de Google Apps Script.';
+            } else if (error.message.includes('403')) {
+                userFriendlyMessage = '🔐 Acceso denegado (403). Verifica que Google Apps Script esté configurado para "Cualquier persona".';
             }
 
-            Utils.showNotification(userMessage, 'error');
+            Utils.showNotification(userFriendlyMessage, 'error');
             throw error;
+        }
+    },
+
+    // Función para probar conexión
+    async testConnection() {
+        try {
+            const result = await this.request('test-connection', {});
+            return '✅ Conexión exitosa: ' + (result.message || 'API funcionando');
+        } catch (error) {
+            return '❌ Error de conexión: ' + error.message;
         }
     },
 
@@ -266,6 +332,11 @@ const AuthManager = {
     async adminLogin(email, password) {
         try {
             Utils.setLoading(true);
+            
+            // Primero probar la conexión
+            const testResult = await ApiService.testConnection();
+            console.log('🧪 Test conexión:', testResult);
+            
             const result = await ApiService.adminLogin(email, password);
             
             AppState.user = result.user;
@@ -284,6 +355,7 @@ const AuthManager = {
             
             return true;
         } catch (error) {
+            console.error('Error en login:', error);
             return false;
         } finally {
             Utils.setLoading(false);
@@ -694,6 +766,7 @@ const EventHandlers = {
         this.initNavigationEvents();
         this.initModalEvents();
         this.initFormEvents();
+        this.initDebugTools();
     },
 
     initAuthEvents() {
@@ -801,6 +874,26 @@ const EventHandlers = {
                 }
             });
         }
+    },
+
+    // Herramientas de diagnóstico
+    initDebugTools() {
+        // Agregar botón de prueba de conexión en el login
+        const authFooter = document.querySelector('.auth-footer');
+        if (authFooter && !document.getElementById('test-connection-btn')) {
+            const testBtn = document.createElement('button');
+            testBtn.id = 'test-connection-btn';
+            testBtn.className = 'btn-link';
+            testBtn.textContent = 'Probar conexión con el servidor';
+            testBtn.type = 'button';
+            testBtn.onclick = async () => {
+                Utils.setLoading(true);
+                const result = await ApiService.testConnection();
+                Utils.setLoading(false);
+                Utils.showNotification(result, result.includes('✅') ? 'success' : 'error');
+            };
+            authFooter.appendChild(testBtn);
+        }
     }
 };
 
@@ -816,6 +909,7 @@ window.closeModal = function() {
 // Inicialización
 function initApp() {
     console.log('🚀 Inicializando FinPro Admin...');
+    console.log('🔗 URL API configurada:', CONFIG.API_URL);
     
     if (AuthManager.checkAuth()) {
         console.log('✅ Admin autenticado encontrado');
