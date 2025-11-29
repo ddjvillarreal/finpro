@@ -1,4 +1,4 @@
-// Configuración de la aplicación - CON TU URL
+// Configuración de la aplicación - CON TU URL INTEGRADA
 const CONFIG = {
     API_URL: 'https://script.google.com/macros/s/AKfycbyfGbp-r64fRN_rr-Pwls_7Y-4CpQfy7H62pUG31m2LWn2IOalcRcFK_Ut55Pwlbom-/exec',
     APP_NAME: 'FinPro',
@@ -291,9 +291,6 @@ const ApiService = {
     }
 };
 
-// El resto del código de app.js se mantiene IGUAL desde aquí...
-// [TODO EL CÓDIGO RESTANTE DE app.js QUE YA TENÍAS]
-
 // Gestión de Autenticación - CORREGIDO
 const AuthManager = {
     // Verificar si hay sesión activa
@@ -533,7 +530,7 @@ const DataManager = {
             Utils.setLoading(true);
             const result = await ApiService.saveTransaction(transactionData);
             
-            Utils.showNotification('Movimiento guardado exitosamente', 'success');
+            Utils.showNotification('✅ Movimiento guardado exitosamente', 'success');
             
             // Recargar datos
             await this.loadInitialData();
@@ -557,7 +554,7 @@ const DataManager = {
             Utils.setLoading(true);
             const result = await ApiService.saveAccount(accountData);
             
-            Utils.showNotification('Cuenta creada exitosamente', 'success');
+            Utils.showNotification('✅ Cuenta creada exitosamente', 'success');
             
             // Recargar datos
             await this.loadInitialData();
