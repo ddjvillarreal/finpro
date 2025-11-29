@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FinPro - Sistema Admin</title>
+    <title>FinPro - Sistema Administrativo</title>
     <meta name="theme-color" content="#0f172a">
     <meta name="description" content="Sistema administrativo FinPro">
     <link rel="stylesheet" href="style.css">
@@ -30,6 +30,7 @@
 
             <div class="auth-footer">
                 <p class="login-hint">Credenciales por defecto: admin@finpro.com / admin123</p>
+                <button id="test-connection-btn" class="btn-link" type="button">Probar conexión con el servidor</button>
             </div>
         </div>
     </div>
@@ -45,6 +46,7 @@
                 <div class="header-right">
                     <span id="user-name" class="user-info"></span>
                     <span id="user-role" class="user-role"></span>
+                    <button id="change-password-btn" class="btn-icon" title="Cambiar contraseña" type="button" style="display: none;">🔑</button>
                     <button id="logout-btn" class="btn-icon" title="Cerrar sesión" type="button">🚪</button>
                 </div>
             </div>
@@ -201,7 +203,7 @@
         </div>
     </div>
 
-    <!-- Modales existentes para transacciones y cuentas -->
+    <!-- Modal Nueva Transacción -->
     <div id="add-transaction-modal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -243,6 +245,7 @@
         </div>
     </div>
 
+    <!-- Modal Nueva Cuenta -->
     <div id="add-account-modal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
