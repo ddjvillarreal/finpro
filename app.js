@@ -1,10 +1,100 @@
 // Configuración de la aplicación - ACTUALIZA CON TU NUEVA URL
 const CONFIG = {
-    API_URL: 'https://script.google.com/macros/s/AKfycbyfGbp-r64fRN_rr-Pwls_7Y-4CpQfy7H62pUG31m2LWn2IOalcRcFK_Ut55Pwlbom-/exec', // ← ACTUALIZA ESTO!
+    API_URL: 'https://script.google.com/macros/s/AKfycbw1EwEVkeEQmTaxrcJhOz1WoZ8dU2mi1BfvQYs9bKdrYbKUmWFty85eAZcYA0gI86XS/exec', // ← ACTUALIZA ESTO!
     APP_NAME: 'FinPro',
-    VERSION: '1.0.3'
+    VERSION: '2.0.0'
 };
 
+// Servicio de API - VERSIÓN SIMPLIFICADA Y ROBUSTA
+const ApiService = {
+    async request(action, data = {}) {
+        try {
+            console.log(`📡 Enviando: ${action}`, data);
+            
+            // Construir URL con parámetros para evitar problemas CORS
+            const url = `${CONFIG.API_URL}?action=${action}&timestamp=${Date.now()}`;
+            
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: action,
+                    data: {
+                        ...data,
+                        token: AppState.token
+                    }
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const result = await response.json();
+            
+            if (!result.success) {
+                throw new Error(result.error || 'Error en el servidor');
+            }
+
+            return result.data;
+            
+        } catch (error) {
+            console.error('❌ Error API:', error);
+            
+            let userMessage = error.message;
+            if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                userMessage = '🌐 Error de red: No se puede conectar al servidor. ' +
+                            'Verifica:\n' +
+                            '• Tu conexión a internet\n' +
+                            '• Que Google Apps Script esté publicado correctamente\n' +
+                            '• Que la URL de la API sea la correcta';
+            }
+            
+            Utils.showNotification(userMessage, 'error');
+            throw error;
+        }
+    },
+
+    // Las demás funciones se mantienen igual...
+    async login(email, password) {
+        return this.request('login', { email, password });
+    },
+
+    async register(userData) {
+        return this.request('register', userData);
+    },
+
+    async getDashboard() {
+        return this.request('get-dashboard');
+    },
+
+    async saveTransaction(transaction) {
+        return this.request('save-transaction', transaction);
+    },
+
+    async getTransactions() {
+        return this.request('get-transactions');
+    },
+
+    async saveAccount(account) {
+        return this.request('save-account', account);
+    },
+
+    async getAccounts() {
+        return this.request('get-accounts');
+    },
+
+    async getCategories() {
+        return this.request('get-categories');
+    },
+
+    // Nueva función para probar CORS
+    async testCors() {
+        return this.request('test-cors', {});
+    }
+};
 // Estado global de la aplicación
 let AppState = {
     user: null,
