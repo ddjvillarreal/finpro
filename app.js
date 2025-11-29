@@ -99,35 +99,73 @@ const Utils = {
     }
 };
 
-// Servicio de API - VERSIÓN CON JSONP
+// Servicio de API - VERSIÓN MEJORADA CON FETCH
 const ApiService = {
     async request(action, data = {}) {
+        try {
+            console.log(`📡 Enviando solicitud: ${action}`, data);
+            
+            if (!navigator.onLine) {
+                throw new Error('🔌 No hay conexión a internet');
+            }
+            
+            const requestData = {
+                action: action,
+                data: data
+            };
+
+            if (AppState.token && action !== 'admin-login') {
+                requestData.data.token = AppState.token;
+            }
+            
+            // Usar fetch en lugar de JSONP
+            const response = await fetch(CONFIG.API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(requestData)
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Error HTTP: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                return result.data;
+            } else {
+                throw new Error(result.error || 'Error en el servidor');
+            }
+            
+        } catch (error) {
+            console.error('❌ Error en API:', error);
+            
+            // Si falla fetch, intentar con JSONP como fallback
+            if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                console.log('🔄 Intentando con JSONP como fallback...');
+                return this.jsonpRequest(action, data);
+            }
+            
+            Utils.showNotification(error.message, 'error');
+            throw error;
+        }
+    },
+
+    // Fallback con JSONP
+    jsonpRequest(action, data = {}) {
         return new Promise((resolve, reject) => {
             try {
-                console.log(`📡 Enviando solicitud: ${action}`, data);
-                
-                if (!navigator.onLine) {
-                    throw new Error('🔌 No hay conexión a internet');
-                }
-                
-                const requestData = {
-                    action: action,
-                    data: data
-                };
-
-                if (AppState.token && action !== 'admin-login') {
-                    requestData.data.token = AppState.token;
-                }
-                
-                // Crear un callback único para JSONP
                 const callbackName = 'jsonp_callback_' + Math.round(100000 * Math.random());
+                const timeoutId = setTimeout(() => {
+                    cleanup();
+                    reject(new Error('Timeout en conexión JSONP'));
+                }, 10000);
                 
-                // Configurar el callback global
+                // Configurar callback
                 window[callbackName] = function(response) {
-                    // Limpiar el callback
-                    delete window[callbackName];
-                    document.getElementById('jsonp-script').remove();
-                    
+                    cleanup();
                     if (response.success) {
                         resolve(response.data);
                     } else {
@@ -135,46 +173,68 @@ const ApiService = {
                     }
                 };
                 
-                // Construir URL con parámetros
+                // Función de limpieza
+                function cleanup() {
+                    clearTimeout(timeoutId);
+                    delete window[callbackName];
+                    const script = document.getElementById('jsonp-script');
+                    if (script) script.remove();
+                }
+                
+                // Construir URL
                 const params = new URLSearchParams();
                 params.append('action', action);
                 params.append('callback', callbackName);
                 
-                // Agregar datos como parámetro (para GET) o en el body (para POST)
+                // Agregar datos
+                Object.keys(data).forEach(key => {
+                    if (data[key] !== undefined && data[key] !== null) {
+                        params.append(key, data[key]);
+                    }
+                });
+                
+                if (AppState.token && action !== 'admin-login') {
+                    params.append('token', AppState.token);
+                }
+                
                 const url = `${CONFIG.API_URL}?${params.toString()}`;
                 
-                // Crear script para JSONP
+                // Crear script
                 const script = document.createElement('script');
                 script.id = 'jsonp-script';
                 script.src = url;
-                
-                // Manejar errores
                 script.onerror = () => {
+                    cleanup();
                     reject(new Error('Error de conexión JSONP'));
                 };
                 
-                // Agregar script al documento
                 document.head.appendChild(script);
                 
             } catch (error) {
-                console.error('❌ Error en API:', error);
-                Utils.showNotification(error.message, 'error');
                 reject(error);
             }
         });
     },
 
-    // Función para probar conexión
+    // Función para probar conexión (mejorada)
     async testConnection() {
         try {
-            const result = await this.request('test-connection', {});
-            return '✅ Conexión exitosa: ' + (result.message || 'API funcionando');
+            // Primero intentar con fetch
+            try {
+                const result = await this.request('test-connection', {});
+                return '✅ Conexión exitosa: ' + (result.message || 'API funcionando');
+            } catch (fetchError) {
+                // Si fetch falla, intentar con JSONP directamente
+                console.log('🔄 Fetch falló, intentando JSONP...');
+                const result = await this.jsonpRequest('test-connection', {});
+                return '✅ Conexión JSONP exitosa: ' + (result.message || 'API funcionando');
+            }
         } catch (error) {
             return '❌ Error de conexión: ' + error.message;
         }
     },
 
-    // Autenticación Admin
+    // El resto de métodos permanecen igual...
     async adminLogin(email, password) {
         if (!email || !password) {
             throw new Error('Email y contraseña son requeridos');
@@ -191,6 +251,8 @@ const ApiService = {
         return this.request('change-admin-password', { currentPassword, newPassword });
     },
 
+    // ... resto de métodos igual
+};
     // Gestión de Usuarios
     async createUser(userData) {
         if (!userData.email || !userData.password || !userData.name) {
