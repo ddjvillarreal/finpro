@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FinPro - Control Financiero</title>
+    <meta name="theme-color" content="#0f172a">
+    <meta name="description" content="Controla tus finanzas personales con FinPro">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Vista de Login -->
+    <div id="login-view" class="view active">
+        <div class="auth-container">
+            <div class="auth-header">
+                <div class="logo">💰 FinPro</div>
+                <h1>Controla Tus Finanzas</h1>
+                <p>Como Bluecoins, pero completamente gratis</p>
+            </div>
+            
+            <form id="login-form" class="auth-form">
+                <div class="input-group">
+                    <input type="email" id="login-email" placeholder="Correo electrónico" required>
+                </div>
+                <div class="input-group">
+                    <input type="password" id="login-password" placeholder="Contraseña" required>
+                </div>
+                <button type="submit" class="btn-primary">Iniciar Sesión</button>
+            </form>
+
+            <form id="register-form" class="auth-form hidden">
+                <div class="input-group">
+                    <input type="text" id="register-name" placeholder="Nombre completo" required>
+                </div>
+                <div class="input-group">
+                    <input type="email" id="register-email" placeholder="Correo electrónico" required>
+                </div>
+                <div class="input-group">
+                    <input type="password" id="register-password" placeholder="Contraseña (mínimo 6 caracteres)" required minlength="6">
+                </div>
+                <button type="submit" class="btn-primary">Crear Cuenta</button>
+            </form>
+
+            <div class="auth-footer">
+                <button id="toggle-auth" class="btn-link">¿No tienes cuenta? Regístrate</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vista Principal -->
+    <div id="main-view" class="view">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="header-left">
+                    <h1 id="current-page-title">Dashboard</h1>
+                </div>
+                <div class="header-right">
+                    <span id="user-name" class="user-info"></span>
+                    <button id="logout-btn" class="btn-icon" title="Cerrar sesión">🚪</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Navegación -->
+        <nav class="bottom-nav">
+            <button class="nav-item active" data-page="dashboard">
+                <span class="nav-icon">📊</span>
+                <span class="nav-label">Resumen</span>
+            </button>
+            <button class="nav-item" data-page="transactions">
+                <span class="nav-icon">💸</span>
+                <span class="nav-label">Movimientos</span>
+            </button>
+            <button class="nav-item" data-page="accounts">
+                <span class="nav-icon">🏦</span>
+                <span class="nav-label">Cuentas</span>
+            </button>
+            <button class="nav-item" data-page="stats">
+                <span class="nav-icon">📈</span>
+                <span class="nav-label">Estadísticas</span>
+            </button>
+        </nav>
+
+        <!-- Contenido Principal -->
+        <main class="main-content">
+            <!-- Dashboard -->
+            <div id="dashboard-page" class="page active">
+                <div class="summary-cards">
+                    <div class="summary-card balance">
+                        <div class="card-label">Patrimonio Total</div>
+                        <div class="card-amount" id="total-balance">$0.00</div>
+                    </div>
+                    <div class="summary-cards-row">
+                        <div class="summary-card income">
+                            <div class="card-label">Ingresos Mes</div>
+                            <div class="card-amount" id="monthly-income">$0.00</div>
+                        </div>
+                        <div class="summary-card expense">
+                            <div class="card-label">Gastos Mes</div>
+                            <div class="card-amount" id="monthly-expenses">$0.00</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-header">
+                        <h3>Cuentas</h3>
+                        <button class="btn-icon" onclick="showModal('add-account-modal')">➕</button>
+                    </div>
+                    <div id="accounts-list" class="accounts-grid"></div>
+                </div>
+
+                <div class="section">
+                    <div class="section-header">
+                        <h3>Movimientos Recientes</h3>
+                        <button class="btn-icon" onclick="showModal('add-transaction-modal')">➕</button>
+                    </div>
+                    <div id="recent-transactions" class="transactions-list"></div>
+                </div>
+            </div>
+
+            <!-- Transacciones -->
+            <div id="transactions-page" class="page">
+                <div class="page-header">
+                    <h2>Todos los Movimientos</h2>
+                    <button class="btn-primary" onclick="showModal('add-transaction-modal')">Nuevo Movimiento</button>
+                </div>
+                <div id="all-transactions" class="transactions-list"></div>
+            </div>
+
+            <!-- Cuentas -->
+            <div id="accounts-page" class="page">
+                <div class="page-header">
+                    <h2>Mis Cuentas</h2>
+                    <button class="btn-primary" onclick="showModal('add-account-modal')">Nueva Cuenta</button>
+                </div>
+                <div id="all-accounts" class="accounts-grid"></div>
+            </div>
+
+            <!-- Estadísticas -->
+            <div id="stats-page" class="page">
+                <div class="page-header">
+                    <h2>Estadísticas</h2>
+                </div>
+                <div class="stats-container">
+                    <div class="stat-card">
+                        <h3>Distribución de Gastos</h3>
+                        <div id="expense-chart" class="chart-placeholder">
+                            <p>No hay datos suficientes</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Flujo Mensual</h3>
+                        <div id="flow-chart" class="chart-placeholder">
+                            <p>No hay datos suficientes</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modales -->
+    <div id="add-transaction-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Nuevo Movimiento</h2>
+                <button class="btn-close" onclick="closeModal()">×</button>
+            </div>
+            <form id="transaction-form">
+                <div class="form-group">
+                    <label>Tipo</label>
+                    <select id="transaction-type" required>
+                        <option value="expense">Gasto</option>
+                        <option value="income">Ingreso</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Cuenta</label>
+                    <select id="transaction-account" required></select>
+                </div>
+                <div class="form-group">
+                    <label>Categoría</label>
+                    <select id="transaction-category" required></select>
+                </div>
+                <div class="form-group">
+                    <label>Monto</label>
+                    <input type="number" id="transaction-amount" step="0.01" placeholder="0.00" required>
+                </div>
+                <div class="form-group">
+                    <label>Descripción</label>
+                    <input type="text" id="transaction-description" placeholder="¿En qué gastaste?">
+                </div>
+                <div class="form-group">
+                    <label>Fecha</label>
+                    <input type="date" id="transaction-date" required>
+                </div>
+                <button type="submit" class="btn-primary">Guardar Movimiento</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="add-account-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Nueva Cuenta</h2>
+                <button class="btn-close" onclick="closeModal()">×</button>
+            </div>
+            <form id="account-form">
+                <div class="form-group">
+                    <label>Nombre</label>
+                    <input type="text" id="account-name" placeholder="Ej: Efectivo USD" required>
+                </div>
+                <div class="form-group">
+                    <label>Moneda</label>
+                    <select id="account-currency" required>
+                        <option value="USD">Dólares (USD)</option>
+                        <option value="VES">Bolívares (VES)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Tipo</label>
+                    <select id="account-type" required>
+                        <option value="asset">Activo (Efectivo, Banco)</option>
+                        <option value="liability">Pasivo (Deuda, Tarjeta)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Saldo Inicial</label>
+                    <input type="number" id="account-balance" step="0.01" placeholder="0.00" required>
+                </div>
+                <button type="submit" class="btn-primary">Crear Cuenta</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading" class="loading-overlay hidden">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Cargando...</div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
