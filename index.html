@@ -44,7 +44,7 @@
             </form>
 
             <div class="auth-footer">
-                <button id="toggle-auth" class="btn-link">¿No tienes cuenta? Regístrate</button>
+                <button id="toggle-auth" class="btn-link" type="button">¿No tienes cuenta? Regístrate</button>
             </div>
         </div>
     </div>
@@ -59,26 +59,26 @@
                 </div>
                 <div class="header-right">
                     <span id="user-name" class="user-info"></span>
-                    <button id="logout-btn" class="btn-icon" title="Cerrar sesión">🚪</button>
+                    <button id="logout-btn" class="btn-icon" title="Cerrar sesión" type="button">🚪</button>
                 </div>
             </div>
         </header>
 
         <!-- Navegación -->
         <nav class="bottom-nav">
-            <button class="nav-item active" data-page="dashboard">
+            <button class="nav-item active" data-page="dashboard" type="button">
                 <span class="nav-icon">📊</span>
                 <span class="nav-label">Resumen</span>
             </button>
-            <button class="nav-item" data-page="transactions">
+            <button class="nav-item" data-page="transactions" type="button">
                 <span class="nav-icon">💸</span>
                 <span class="nav-label">Movimientos</span>
             </button>
-            <button class="nav-item" data-page="accounts">
+            <button class="nav-item" data-page="accounts" type="button">
                 <span class="nav-icon">🏦</span>
                 <span class="nav-label">Cuentas</span>
             </button>
-            <button class="nav-item" data-page="stats">
+            <button class="nav-item" data-page="stats" type="button">
                 <span class="nav-icon">📈</span>
                 <span class="nav-label">Estadísticas</span>
             </button>
@@ -108,7 +108,7 @@
                 <div class="section">
                     <div class="section-header">
                         <h3>Cuentas</h3>
-                        <button class="btn-icon" onclick="showModal('add-account-modal')">➕</button>
+                        <button class="btn-icon" onclick="showModal('add-account-modal')" type="button">➕</button>
                     </div>
                     <div id="accounts-list" class="accounts-grid"></div>
                 </div>
@@ -116,7 +116,7 @@
                 <div class="section">
                     <div class="section-header">
                         <h3>Movimientos Recientes</h3>
-                        <button class="btn-icon" onclick="showModal('add-transaction-modal')">➕</button>
+                        <button class="btn-icon" onclick="showModal('add-transaction-modal')" type="button">➕</button>
                     </div>
                     <div id="recent-transactions" class="transactions-list"></div>
                 </div>
@@ -124,26 +124,26 @@
 
             <!-- Transacciones -->
             <div id="transactions-page" class="page">
-                <div class="page-header">
-                    <h2>Todos los Movimientos</h2>
-                    <button class="btn-primary" onclick="showModal('add-transaction-modal')">Nuevo Movimiento</button>
+                <div class="section-header">
+                    <h3>Todos los Movimientos</h3>
+                    <button class="btn-primary" onclick="showModal('add-transaction-modal')" type="button">Nuevo Movimiento</button>
                 </div>
                 <div id="all-transactions" class="transactions-list"></div>
             </div>
 
             <!-- Cuentas -->
             <div id="accounts-page" class="page">
-                <div class="page-header">
-                    <h2>Mis Cuentas</h2>
-                    <button class="btn-primary" onclick="showModal('add-account-modal')">Nueva Cuenta</button>
+                <div class="section-header">
+                    <h3>Mis Cuentas</h3>
+                    <button class="btn-primary" onclick="showModal('add-account-modal')" type="button">Nueva Cuenta</button>
                 </div>
                 <div id="all-accounts" class="accounts-grid"></div>
             </div>
 
             <!-- Estadísticas -->
             <div id="stats-page" class="page">
-                <div class="page-header">
-                    <h2>Estadísticas</h2>
+                <div class="section-header">
+                    <h3>Estadísticas</h3>
                 </div>
                 <div class="stats-container">
                     <div class="stat-card">
@@ -168,37 +168,39 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Nuevo Movimiento</h2>
-                <button class="btn-close" onclick="closeModal()">×</button>
+                <button class="btn-close" onclick="closeModal()" type="button">×</button>
             </div>
             <form id="transaction-form">
                 <div class="form-group">
-                    <label>Tipo</label>
+                    <label for="transaction-type">Tipo</label>
                     <select id="transaction-type" required>
                         <option value="expense">Gasto</option>
                         <option value="income">Ingreso</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>Cuenta</label>
+                    <label for="transaction-account">Cuenta</label>
                     <select id="transaction-account" required></select>
                 </div>
                 <div class="form-group">
-                    <label>Categoría</label>
+                    <label for="transaction-category">Categoría</label>
                     <select id="transaction-category" required></select>
                 </div>
                 <div class="form-group">
-                    <label>Monto</label>
+                    <label for="transaction-amount">Monto</label>
                     <input type="number" id="transaction-amount" step="0.01" placeholder="0.00" required>
                 </div>
                 <div class="form-group">
-                    <label>Descripción</label>
+                    <label for="transaction-description">Descripción</label>
                     <input type="text" id="transaction-description" placeholder="¿En qué gastaste?">
                 </div>
                 <div class="form-group">
-                    <label>Fecha</label>
+                    <label for="transaction-date">Fecha</label>
                     <input type="date" id="transaction-date" required>
                 </div>
-                <button type="submit" class="btn-primary">Guardar Movimiento</button>
+                <div class="form-group">
+                    <button type="submit" class="btn-primary">Guardar Movimiento</button>
+                </div>
             </form>
         </div>
     </div>
@@ -207,32 +209,34 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Nueva Cuenta</h2>
-                <button class="btn-close" onclick="closeModal()">×</button>
+                <button class="btn-close" onclick="closeModal()" type="button">×</button>
             </div>
             <form id="account-form">
                 <div class="form-group">
-                    <label>Nombre</label>
+                    <label for="account-name">Nombre</label>
                     <input type="text" id="account-name" placeholder="Ej: Efectivo USD" required>
                 </div>
                 <div class="form-group">
-                    <label>Moneda</label>
+                    <label for="account-currency">Moneda</label>
                     <select id="account-currency" required>
                         <option value="USD">Dólares (USD)</option>
                         <option value="VES">Bolívares (VES)</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>Tipo</label>
+                    <label for="account-type">Tipo</label>
                     <select id="account-type" required>
                         <option value="asset">Activo (Efectivo, Banco)</option>
                         <option value="liability">Pasivo (Deuda, Tarjeta)</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>Saldo Inicial</label>
+                    <label for="account-balance">Saldo Inicial</label>
                     <input type="number" id="account-balance" step="0.01" placeholder="0.00" required>
                 </div>
-                <button type="submit" class="btn-primary">Crear Cuenta</button>
+                <div class="form-group">
+                    <button type="submit" class="btn-primary">Crear Cuenta</button>
+                </div>
             </form>
         </div>
     </div>
