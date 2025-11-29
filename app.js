@@ -1,8 +1,8 @@
 // Configuración de la aplicación
 const CONFIG = {
     API_URL: 'https://script.google.com/macros/s/AKfycbw1EwEVkeEQmTaxrcJhOz1WoZ8dU2mi1BfvQYs9bKdrYbKUmWFty85eAZcYA0gI86XS/exec',
-    APP_NAME: 'FinPro',
-    VERSION: '2.0.0'
+    APP_NAME: 'FinPro Admin',
+    VERSION: '3.0.0'
 };
 
 // Estado global de la aplicación
@@ -13,13 +13,13 @@ let AppState = {
     accounts: [],
     transactions: [],
     categories: [],
+    users: [],
     currentView: 'dashboard',
     loading: false
 };
 
 // Utilidades
 const Utils = {
-    // Formatear dinero
     formatMoney(amount, currency = 'USD') {
         return new Intl.NumberFormat('en-US', {
             style: 'currency',
@@ -28,7 +28,6 @@ const Utils = {
         }).format(amount);
     },
 
-    // Formatear fecha
     formatDate(dateString) {
         const date = new Date(dateString);
         return date.toLocaleDateString('es-ES', {
@@ -38,15 +37,12 @@ const Utils = {
         });
     },
 
-    // Mostrar notificación mejorada
     showNotification(message, type = 'info') {
-        // Remover notificaciones existentes
         document.querySelectorAll('.notification').forEach(n => n.remove());
 
         const notification = document.createElement('div');
         notification.className = `notification notification-${type}`;
         
-        // Iconos según tipo
         const icons = {
             success: '✅',
             error: '❌',
@@ -62,7 +58,6 @@ const Utils = {
             </div>
         `;
 
-        // Estilos para la notificación
         notification.style.cssText = `
             position: fixed;
             top: 20px;
@@ -78,50 +73,16 @@ const Utils = {
             border-left: 4px solid ${type === 'error' ? '#dc2626' : type === 'success' ? '#059669' : type === 'warning' ? '#d97706' : '#2563eb'};
         `;
 
-        const content = notification.querySelector('.notification-content');
-        content.style.cssText = `
-            display: flex;
-            align-items: flex-start;
-            gap: 12px;
-        `;
-
-        const messageEl = notification.querySelector('.notification-message');
-        messageEl.style.cssText = `
-            flex: 1;
-            font-size: 14px;
-            line-height: 1.4;
-        `;
-
         const closeBtn = notification.querySelector('.notification-close');
-        closeBtn.style.cssText = `
-            background: none;
-            border: none;
-            color: white;
-            font-size: 18px;
-            cursor: pointer;
-            padding: 0;
-            width: 20px;
-            height: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        `;
-
-        closeBtn.addEventListener('click', () => {
-            notification.remove();
-        });
+        closeBtn.addEventListener('click', () => notification.remove());
 
         document.body.appendChild(notification);
         
-        // Auto-remover después de 6 segundos
         setTimeout(() => {
-            if (notification.parentElement) {
-                notification.remove();
-            }
+            if (notification.parentElement) notification.remove();
         }, 6000);
     },
 
-    // Mostrar/ocultar loading
     setLoading(loading) {
         const loadingEl = document.getElementById('loading');
         if (loading) {
@@ -132,22 +93,20 @@ const Utils = {
         AppState.loading = loading;
     },
 
-    // Validar email
     isValidEmail(email) {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         return emailRegex.test(email);
     }
 };
 
-// Servicio de API - VERSIÓN CORREGIDA
+// Servicio de API - Versión Simplificada y Robusta
 const ApiService = {
     async request(action, data = {}) {
         try {
-            console.log(`📡 Enviando solicitud a API: ${action}`, data);
+            console.log(`📡 Enviando: ${action}`);
             
-            // Verificar conexión a internet
             if (!navigator.onLine) {
-                throw new Error('🔌 No hay conexión a internet. Verifica tu conexión.');
+                throw new Error('🔌 No hay conexión a internet');
             }
             
             const requestData = {
@@ -155,8 +114,7 @@ const ApiService = {
                 data: data
             };
 
-            // Si hay token, lo agregamos (excepto para login y register)
-            if (AppState.token && action !== 'login' && action !== 'register') {
+            if (AppState.token && !['admin-login'].includes(action)) {
                 requestData.data.token = AppState.token;
             }
             
@@ -169,113 +127,92 @@ const ApiService = {
             });
 
             if (!response.ok) {
-                throw new Error(`Error HTTP: ${response.status} ${response.statusText}`);
+                throw new Error(`Error HTTP: ${response.status}`);
             }
 
             const result = await response.json();
             
             if (!result.success) {
-                let errorMessage = result.error || 'Error desconocido en el servidor';
-                
-                // Mapeo de errores comunes
-                const errorMap = {
-                    'User already exists': 'Ya existe un usuario con este email',
-                    'Invalid credentials': 'Email o contraseña incorrectos',
-                    'Token expirado': 'Tu sesión ha expirado. Por favor inicia sesión nuevamente',
-                    'Token inválido': 'Sesión inválida. Por favor inicia sesión nuevamente',
-                    'Failed to fetch': 'No se puede conectar al servidor',
-                    'NetworkError': 'Error de red',
-                    'All fields are required': 'Todos los campos son requeridos',
-                    'Invalid email format': 'El formato del email no es válido',
-                    'Password must be at least 6 characters': 'La contraseña debe tener al menos 6 caracteres'
-                };
-
-                // Buscar coincidencias en el mapa de errores
-                for (const [key, value] of Object.entries(errorMap)) {
-                    if (errorMessage.includes(key)) {
-                        errorMessage = value;
-                        break;
-                    }
-                }
-
-                throw new Error(errorMessage);
+                throw new Error(result.error || 'Error en el servidor');
             }
 
-            console.log(`✅ Respuesta exitosa de API: ${action}`, result.data);
             return result.data;
             
         } catch (error) {
-            console.error('❌ Error en API:', error);
+            console.error('❌ Error API:', error);
             
-            // Mensajes de error amigables en español con diagnóstico
-            let userFriendlyMessage = error.message;
-            
-            if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-                userFriendlyMessage = 
-                    '🔌 Error de conexión al servidor\n\n' +
-                    'Posibles causas:\n' +
-                    '• Google Apps Script no está desplegado correctamente\n' +
-                    '• La URL de la API es incorrecta\n' +
-                    '• Problemas de red o firewall\n\n' +
-                    'Solución:\n' +
-                    '1. Ve a script.google.com\n' +
-                    '2. Publica como "Aplicación web"\n' +
-                    '3. Configura: "Ejecutar como: Yo", "Acceso: Cualquiera"\n' +
-                    '4. Actualiza la URL en app.js';
-            } else if (error.message.includes('404')) {
-                userFriendlyMessage = '🔍 URL no encontrada. Verifica que la URL de Google Apps Script sea correcta.';
-            } else if (error.message.includes('500')) {
-                userFriendlyMessage = '⚙️ Error interno del servidor. Revisa los logs de Google Apps Script.';
-            } else if (error.message.includes('403')) {
-                userFriendlyMessage = '🔐 Acceso denegado. Verifica que Google Apps Script esté configurado para "Cualquier persona".';
+            let userMessage = error.message;
+            if (error.message.includes('Failed to fetch')) {
+                userMessage = 'Error de conexión. Verifica:\n• Tu conexión a internet\n• Que la URL de la API sea correcta';
             }
 
-            Utils.showNotification(userFriendlyMessage, 'error');
+            Utils.showNotification(userMessage, 'error');
             throw error;
         }
     },
 
-    // Autenticación
-    async login(email, password) {
+    // Autenticación Admin
+    async adminLogin(email, password) {
         if (!email || !password) {
-            throw new Error('❌ Email y contraseña son requeridos');
+            throw new Error('Email y contraseña son requeridos');
         }
         
         if (!Utils.isValidEmail(email)) {
-            throw new Error('❌ El formato del email no es válido');
+            throw new Error('El formato del email no es válido');
         }
         
-        return this.request('login', { email, password });
+        return this.request('admin-login', { email, password });
     },
 
-    async register(userData) {
+    async changeAdminPassword(currentPassword, newPassword) {
+        if (!currentPassword || !newPassword) {
+            throw new Error('Ambas contraseñas son requeridas');
+        }
+        
+        if (newPassword.length < 6) {
+            throw new Error('La nueva contraseña debe tener al menos 6 caracteres');
+        }
+        
+        return this.request('change-admin-password', { currentPassword, newPassword });
+    },
+
+    // Gestión de Usuarios
+    async createUser(userData) {
         if (!userData.email || !userData.password || !userData.name) {
-            throw new Error('❌ Todos los campos son requeridos');
+            throw new Error('Todos los campos son requeridos');
         }
         
         if (!Utils.isValidEmail(userData.email)) {
-            throw new Error('❌ El formato del email no es válido');
+            throw new Error('El formato del email no es válido');
         }
         
         if (userData.password.length < 6) {
-            throw new Error('❌ La contraseña debe tener al menos 6 caracteres');
+            throw new Error('La contraseña debe tener al menos 6 caracteres');
         }
         
-        return this.request('register', userData);
+        return this.request('create-user', userData);
     },
 
-    // Datos
+    async getUsers() {
+        return this.request('get-users');
+    },
+
+    async updateUser(userId, updates) {
+        return this.request('update-user', { userId, ...updates });
+    },
+
+    // Datos Financieros
     async getDashboard() {
         return this.request('get-dashboard');
     },
 
     async saveTransaction(transaction) {
         if (!transaction.type || !transaction.accountId || !transaction.amount) {
-            throw new Error('❌ Tipo, cuenta y monto son requeridos');
+            throw new Error('Tipo, cuenta y monto son requeridos');
         }
         
         if (isNaN(transaction.amount) || transaction.amount <= 0) {
-            throw new Error('❌ El monto debe ser un número positivo');
+            throw new Error('El monto debe ser un número positivo');
         }
         
         return this.request('save-transaction', transaction);
@@ -287,11 +224,11 @@ const ApiService = {
 
     async saveAccount(account) {
         if (!account.name || !account.currency || !account.type) {
-            throw new Error('❌ Nombre, moneda y tipo son requeridos');
+            throw new Error('Nombre, moneda y tipo son requeridos');
         }
         
         if (isNaN(account.initialBalance)) {
-            throw new Error('❌ El saldo inicial debe ser un número válido');
+            throw new Error('El saldo inicial debe ser un número válido');
         }
         
         return this.request('save-account', account);
@@ -308,10 +245,9 @@ const ApiService = {
 
 // Gestión de Autenticación
 const AuthManager = {
-    // Verificar si hay sesión activa
     checkAuth() {
-        const token = localStorage.getItem('finpro_token');
-        const user = localStorage.getItem('finpro_user');
+        const token = localStorage.getItem('finpro_admin_token');
+        const user = localStorage.getItem('finpro_admin_user');
         
         if (token && user) {
             try {
@@ -327,107 +263,109 @@ const AuthManager = {
         return false;
     },
 
-    // Iniciar sesión
-    async login(email, password) {
+    async adminLogin(email, password) {
         try {
             Utils.setLoading(true);
-            const result = await ApiService.login(email, password);
+            const result = await ApiService.adminLogin(email, password);
             
             AppState.user = result.user;
             AppState.token = result.token;
             
-            localStorage.setItem('finpro_token', result.token);
-            localStorage.setItem('finpro_user', JSON.stringify(result.user));
+            localStorage.setItem('finpro_admin_token', result.token);
+            localStorage.setItem('finpro_admin_user', JSON.stringify(result.user));
             
             Utils.showNotification(`✅ Bienvenido ${result.user.name}`, 'success');
+            
+            if (result.requiresPasswordChange) {
+                this.showChangePasswordModal();
+            } else {
+                this.showMainApp();
+            }
+            
+            return true;
+        } catch (error) {
+            return false;
+        } finally {
+            Utils.setLoading(false);
+        }
+    },
+
+    async changePassword(currentPassword, newPassword, confirmPassword) {
+        try {
+            if (newPassword !== confirmPassword) {
+                throw new Error('Las contraseñas no coinciden');
+            }
+            
+            Utils.setLoading(true);
+            await ApiService.changeAdminPassword(currentPassword, newPassword);
+            
+            Utils.showNotification('✅ Contraseña actualizada correctamente', 'success');
+            
+            // Actualizar estado del usuario
+            AppState.user.firstLogin = false;
+            localStorage.setItem('finpro_admin_user', JSON.stringify(AppState.user));
+            
             this.showMainApp();
             return true;
         } catch (error) {
-            // El error ya fue mostrado por ApiService
+            Utils.showNotification(error.message, 'error');
             return false;
         } finally {
             Utils.setLoading(false);
         }
     },
 
-    // Registrar nuevo usuario
-    async register(userData) {
-        try {
-            Utils.setLoading(true);
-            const result = await ApiService.register(userData);
-            
-            Utils.showNotification('✅ Cuenta creada exitosamente. Ahora inicia sesión.', 'success');
-            this.showLoginForm();
-            return true;
-        } catch (error) {
-            // El error ya fue mostrado por ApiService
-            return false;
-        } finally {
-            Utils.setLoading(false);
-        }
-    },
-
-    // Cerrar sesión
     logout() {
         AppState.user = null;
         AppState.token = null;
         AppState.dashboardData = null;
         
-        localStorage.removeItem('finpro_token');
-        localStorage.removeItem('finpro_user');
+        localStorage.removeItem('finpro_admin_token');
+        localStorage.removeItem('finpro_admin_user');
         
         Utils.showNotification('👋 Sesión cerrada correctamente', 'info');
         this.showLoginView();
     },
 
-    // Mostrar vista de login
     showLoginView() {
         document.getElementById('login-view').classList.add('active');
         document.getElementById('main-view').classList.remove('active');
-        this.showLoginForm();
     },
 
-    // Mostrar formulario de login específicamente
-    showLoginForm() {
-        document.getElementById('login-form').classList.remove('hidden');
-        document.getElementById('register-form').classList.add('hidden');
-        document.getElementById('toggle-auth').textContent = '¿No tienes cuenta? Regístrate';
-        
-        // Limpiar formularios
-        document.getElementById('login-form').reset();
-        document.getElementById('register-form').reset();
-    },
-
-    // Mostrar formulario de registro
-    showRegisterForm() {
-        document.getElementById('login-form').classList.add('hidden');
-        document.getElementById('register-form').classList.remove('hidden');
-        document.getElementById('toggle-auth').textContent = '¿Ya tienes cuenta? Inicia sesión';
-    },
-
-    // Mostrar aplicación principal
     showMainApp() {
         document.getElementById('login-view').classList.remove('active');
         document.getElementById('main-view').classList.add('active');
-        document.getElementById('user-name').textContent = AppState.user.name;
         
-        // Cargar datos iniciales
+        document.getElementById('user-name').textContent = AppState.user.name;
+        document.getElementById('user-role').textContent = `(${AppState.user.role})`;
+        
+        // Mostrar opción de cambiar contraseña en el header
+        this.addPasswordChangeOption();
+        
         DataManager.loadInitialData();
     },
 
-    // Alternar entre login y registro
-    toggleAuthMode() {
-        if (document.getElementById('login-form').classList.contains('hidden')) {
-            this.showLoginForm();
-        } else {
-            this.showRegisterForm();
+    showChangePasswordModal() {
+        ModalManager.showModal('change-password-modal');
+    },
+
+    addPasswordChangeOption() {
+        const headerRight = document.querySelector('.header-right');
+        if (!document.getElementById('change-password-btn')) {
+            const changePassBtn = document.createElement('button');
+            changePassBtn.id = 'change-password-btn';
+            changePassBtn.className = 'btn-icon';
+            changePassBtn.innerHTML = '🔑';
+            changePassBtn.title = 'Cambiar contraseña';
+            changePassBtn.onclick = () => this.showChangePasswordModal();
+            
+            headerRight.insertBefore(changePassBtn, document.getElementById('logout-btn'));
         }
     }
 };
 
 // Gestión de Datos
 const DataManager = {
-    // Cargar todos los datos iniciales
     async loadInitialData() {
         try {
             Utils.setLoading(true);
@@ -441,6 +379,11 @@ const DataManager = {
             this.renderDashboard();
             this.updateAccountsSelect();
             this.updateCategoriesSelect();
+            
+            // Si es admin, cargar lista de usuarios
+            if (AppState.user.role === 'admin') {
+                await this.loadUsers();
+            }
         } catch (error) {
             console.error('Error loading data:', error);
         } finally {
@@ -448,12 +391,10 @@ const DataManager = {
         }
     },
 
-    // Renderizar dashboard
     renderDashboard() {
         const data = AppState.dashboardData;
         if (!data) return;
 
-        // Actualizar resumen
         document.getElementById('total-balance').textContent = 
             Utils.formatMoney(data.summary?.total_balance || 0);
         document.getElementById('monthly-income').textContent = 
@@ -461,14 +402,10 @@ const DataManager = {
         document.getElementById('monthly-expenses').textContent = 
             Utils.formatMoney(data.summary?.monthly_expenses || 0);
 
-        // Renderizar cuentas
         this.renderAccounts(data.accounts, 'accounts-list');
-        
-        // Renderizar transacciones recientes
         this.renderTransactions(data.recentTransactions, 'recent-transactions');
     },
 
-    // Renderizar lista de cuentas
     renderAccounts(accounts, containerId) {
         const container = document.getElementById(containerId);
         if (!accounts || accounts.length === 0) {
@@ -489,7 +426,6 @@ const DataManager = {
         `).join('');
     },
 
-    // Renderizar lista de transacciones
     renderTransactions(transactions, containerId) {
         const container = document.getElementById(containerId);
         if (!transactions || transactions.length === 0) {
@@ -515,7 +451,68 @@ const DataManager = {
         `).join('');
     },
 
-    // Actualizar select de cuentas en formularios
+    async loadUsers() {
+        try {
+            const users = await ApiService.getUsers();
+            AppState.users = users;
+            this.renderUsers(users);
+        } catch (error) {
+            console.error('Error loading users:', error);
+        }
+    },
+
+    renderUsers(users) {
+        const container = document.getElementById('users-list');
+        if (!users || users.length === 0) {
+            container.innerHTML = '<div class="no-data">No hay usuarios registrados</div>';
+            return;
+        }
+
+        container.innerHTML = users.map(user => `
+            <div class="user-item account-item">
+                <div class="user-info">
+                    <h4>${user.name} <span class="user-role-badge">${user.role}</span></h4>
+                    <p>${user.email}</p>
+                    <p class="user-permissions">${user.canEdit ? 'Puede editar finanzas' : 'Solo lectura'}</p>
+                </div>
+                <div class="user-actions">
+                    <button class="btn-icon" onclick="DataManager.toggleUserEdit('${user.id}', ${!user.canEdit})" 
+                            title="${user.canEdit ? 'Quitar permisos' : 'Dar permisos'}">
+                        ${user.canEdit ? '🔒' : '✏️'}
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    },
+
+    async toggleUserEdit(userId, canEdit) {
+        try {
+            Utils.setLoading(true);
+            await ApiService.updateUser(userId, { canEdit });
+            Utils.showNotification('✅ Permisos actualizados correctamente', 'success');
+            await this.loadUsers();
+        } catch (error) {
+            Utils.showNotification(error.message, 'error');
+        } finally {
+            Utils.setLoading(false);
+        }
+    },
+
+    async createUser(userData) {
+        try {
+            Utils.setLoading(true);
+            await ApiService.createUser(userData);
+            Utils.showNotification('✅ Usuario creado exitosamente', 'success');
+            await this.loadUsers();
+            return true;
+        } catch (error) {
+            Utils.showNotification(error.message, 'error');
+            return false;
+        } finally {
+            Utils.setLoading(false);
+        }
+    },
+
     updateAccountsSelect() {
         const select = document.getElementById('transaction-account');
         if (!select) return;
@@ -525,12 +522,10 @@ const DataManager = {
         `).join('');
     },
 
-    // Actualizar select de categorías en formularios
     updateCategoriesSelect() {
         const select = document.getElementById('transaction-category');
         if (!select) return;
 
-        // Filtrar categorías por tipo de transacción
         const transactionType = document.getElementById('transaction-type').value;
         const filteredCategories = AppState.categories.filter(cat => cat.type === transactionType);
         
@@ -539,22 +534,12 @@ const DataManager = {
         `).join('');
     },
 
-    // Agregar nueva transacción
     async addTransaction(transactionData) {
         try {
             Utils.setLoading(true);
-            const result = await ApiService.saveTransaction(transactionData);
-            
+            await ApiService.saveTransaction(transactionData);
             Utils.showNotification('✅ Movimiento guardado exitosamente', 'success');
-            
-            // Recargar datos
             await this.loadInitialData();
-            
-            // Si estamos en la vista de transacciones, recargarla
-            if (AppState.currentView === 'transactions') {
-                this.loadTransactionsPage();
-            }
-            
             return true;
         } catch (error) {
             return false;
@@ -563,22 +548,12 @@ const DataManager = {
         }
     },
 
-    // Agregar nueva cuenta
     async addAccount(accountData) {
         try {
             Utils.setLoading(true);
-            const result = await ApiService.saveAccount(accountData);
-            
+            await ApiService.saveAccount(accountData);
             Utils.showNotification('✅ Cuenta creada exitosamente', 'success');
-            
-            // Recargar datos
             await this.loadInitialData();
-            
-            // Si estamos en la vista de cuentas, recargarla
-            if (AppState.currentView === 'accounts') {
-                this.loadAccountsPage();
-            }
-            
             return true;
         } catch (error) {
             return false;
@@ -587,7 +562,6 @@ const DataManager = {
         }
     },
 
-    // Cargar página de transacciones
     async loadTransactionsPage() {
         try {
             Utils.setLoading(true);
@@ -600,7 +574,6 @@ const DataManager = {
         }
     },
 
-    // Cargar página de cuentas
     async loadAccountsPage() {
         try {
             Utils.setLoading(true);
@@ -611,56 +584,35 @@ const DataManager = {
         } finally {
             Utils.setLoading(false);
         }
-    },
-
-    // Cargar página de estadísticas
-    loadStatsPage() {
-        const expenseChart = document.getElementById('expense-chart');
-        const flowChart = document.getElementById('flow-chart');
-        
-        if (AppState.transactions.length === 0) {
-            expenseChart.innerHTML = '<p>No hay datos suficientes para mostrar estadísticas</p>';
-            flowChart.innerHTML = '<p>No hay datos suficientes para mostrar estadísticas</p>';
-        } else {
-            expenseChart.innerHTML = '<p>Gráfico de distribución de gastos (próximamente)</p>';
-            flowChart.innerHTML = '<p>Gráfico de flujo mensual (próximamente)</p>';
-        }
     }
 };
 
 // Gestión de Navegación
 const NavigationManager = {
-    // Cambiar de página
     switchPage(page) {
-        // Actualizar estado
         AppState.currentView = page;
         
-        // Actualizar navegación
         document.querySelectorAll('.nav-item').forEach(item => {
             item.classList.remove('active');
         });
         document.querySelector(`[data-page="${page}"]`).classList.add('active');
         
-        // Actualizar páginas
         document.querySelectorAll('.page').forEach(pageEl => {
             pageEl.classList.remove('active');
         });
         document.getElementById(`${page}-page`).classList.add('active');
         
-        // Actualizar título
         const titles = {
-            dashboard: 'Dashboard',
+            dashboard: 'Panel Admin',
+            users: 'Gestión de Usuarios',
             transactions: 'Movimientos',
-            accounts: 'Cuentas',
-            stats: 'Estadísticas'
+            accounts: 'Cuentas'
         };
         document.getElementById('current-page-title').textContent = titles[page];
         
-        // Cargar datos específicos de la página
         this.loadPageData(page);
     },
 
-    // Cargar datos específicos de la página
     loadPageData(page) {
         switch (page) {
             case 'transactions':
@@ -669,8 +621,8 @@ const NavigationManager = {
             case 'accounts':
                 DataManager.loadAccountsPage();
                 break;
-            case 'stats':
-                DataManager.loadStatsPage();
+            case 'users':
+                DataManager.loadUsers();
                 break;
             case 'dashboard':
             default:
@@ -682,28 +634,21 @@ const NavigationManager = {
 
 // Gestión de Modales
 const ModalManager = {
-    // Mostrar modal
     showModal(modalId) {
         const modal = document.getElementById(modalId);
         if (modal) {
             modal.style.display = 'flex';
-            
-            // Preparar modal según tipo
             this.prepareModal(modalId);
         }
     },
 
-    // Cerrar modal
     closeModal() {
         document.querySelectorAll('.modal').forEach(modal => {
             modal.style.display = 'none';
         });
-        
-        // Limpiar formularios
         this.clearForms();
     },
 
-    // Preparar modal según tipo
     prepareModal(modalId) {
         switch (modalId) {
             case 'add-transaction-modal':
@@ -715,43 +660,35 @@ const ModalManager = {
         }
     },
 
-    // Preparar modal de transacción
     prepareTransactionModal() {
-        // Establecer fecha actual
         const today = new Date().toISOString().split('T')[0];
         document.getElementById('transaction-date').value = today;
         
-        // Actualizar categorías según tipo seleccionado
         const typeSelect = document.getElementById('transaction-type');
         if (typeSelect) {
-            typeSelect.addEventListener('change', function() {
+            typeSelect.addEventListener('change', () => {
                 DataManager.updateCategoriesSelect();
             });
         }
         
-        // Inicializar categorías
         DataManager.updateCategoriesSelect();
     },
 
-    // Preparar modal de cuenta
     prepareAccountModal() {
-        // Establecer saldo inicial en 0
         document.getElementById('account-balance').value = '0.00';
     },
 
-    // Limpiar formularios
     clearForms() {
-        const transactionForm = document.getElementById('transaction-form');
-        const accountForm = document.getElementById('account-form');
-        
-        if (transactionForm) transactionForm.reset();
-        if (accountForm) accountForm.reset();
+        const forms = ['transaction-form', 'account-form', 'add-user-form', 'change-password-form'];
+        forms.forEach(formId => {
+            const form = document.getElementById(formId);
+            if (form) form.reset();
+        });
     }
 };
 
 // Manejadores de Eventos
 const EventHandlers = {
-    // Inicializar todos los event listeners
     init() {
         this.initAuthEvents();
         this.initNavigationEvents();
@@ -759,38 +696,27 @@ const EventHandlers = {
         this.initFormEvents();
     },
 
-    // Eventos de autenticación
     initAuthEvents() {
-        // Login
-        const loginForm = document.getElementById('login-form');
+        // Login Admin
+        const loginForm = document.getElementById('admin-login-form');
         if (loginForm) {
             loginForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                const email = document.getElementById('login-email').value;
-                const password = document.getElementById('login-password').value;
-                await AuthManager.login(email, password);
+                const email = document.getElementById('admin-email').value;
+                const password = document.getElementById('admin-password').value;
+                await AuthManager.adminLogin(email, password);
             });
         }
 
-        // Registro
-        const registerForm = document.getElementById('register-form');
-        if (registerForm) {
-            registerForm.addEventListener('submit', async (e) => {
+        // Cambio de contraseña
+        const changePassForm = document.getElementById('change-password-form');
+        if (changePassForm) {
+            changePassForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                const userData = {
-                    name: document.getElementById('register-name').value,
-                    email: document.getElementById('register-email').value,
-                    password: document.getElementById('register-password').value
-                };
-                await AuthManager.register(userData);
-            });
-        }
-
-        // Alternar entre login/registro
-        const toggleAuth = document.getElementById('toggle-auth');
-        if (toggleAuth) {
-            toggleAuth.addEventListener('click', () => {
-                AuthManager.toggleAuthMode();
+                const currentPassword = document.getElementById('current-password').value;
+                const newPassword = document.getElementById('new-password').value;
+                const confirmPassword = document.getElementById('confirm-password').value;
+                await AuthManager.changePassword(currentPassword, newPassword, confirmPassword);
             });
         }
 
@@ -803,7 +729,6 @@ const EventHandlers = {
         }
     },
 
-    // Eventos de navegación
     initNavigationEvents() {
         document.querySelectorAll('.nav-item').forEach(item => {
             item.addEventListener('click', () => {
@@ -813,9 +738,7 @@ const EventHandlers = {
         });
     },
 
-    // Eventos de modales
     initModalEvents() {
-        // Cerrar modales al hacer clic fuera
         document.querySelectorAll('.modal').forEach(modal => {
             modal.addEventListener('click', (e) => {
                 if (e.target === modal) {
@@ -825,14 +748,12 @@ const EventHandlers = {
         });
     },
 
-    // Eventos de formularios
     initFormEvents() {
         // Formulario de transacción
         const transactionForm = document.getElementById('transaction-form');
         if (transactionForm) {
             transactionForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                
                 const formData = {
                     type: document.getElementById('transaction-type').value,
                     accountId: document.getElementById('transaction-account').value,
@@ -841,7 +762,6 @@ const EventHandlers = {
                     description: document.getElementById('transaction-description').value,
                     date: document.getElementById('transaction-date').value
                 };
-
                 if (await DataManager.addTransaction(formData)) {
                     ModalManager.closeModal();
                 }
@@ -853,15 +773,30 @@ const EventHandlers = {
         if (accountForm) {
             accountForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                
                 const formData = {
                     name: document.getElementById('account-name').value,
                     currency: document.getElementById('account-currency').value,
                     type: document.getElementById('account-type').value,
                     initialBalance: parseFloat(document.getElementById('account-balance').value)
                 };
-
                 if (await DataManager.addAccount(formData)) {
+                    ModalManager.closeModal();
+                }
+            });
+        }
+
+        // Formulario de nuevo usuario
+        const addUserForm = document.getElementById('add-user-form');
+        if (addUserForm) {
+            addUserForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const formData = {
+                    name: document.getElementById('user-name').value,
+                    email: document.getElementById('user-email').value,
+                    password: document.getElementById('user-password').value,
+                    canEdit: document.getElementById('user-can-edit').checked
+                };
+                if (await DataManager.createUser(formData)) {
                     ModalManager.closeModal();
                 }
             });
@@ -869,7 +804,7 @@ const EventHandlers = {
     }
 };
 
-// Funciones globales para onclick
+// Funciones globales
 window.showModal = function(modalId) {
     ModalManager.showModal(modalId);
 };
@@ -878,29 +813,26 @@ window.closeModal = function() {
     ModalManager.closeModal();
 };
 
-// Inicialización de la aplicación
+// Inicialización
 function initApp() {
-    console.log('🚀 Inicializando FinPro...');
+    console.log('🚀 Inicializando FinPro Admin...');
     
-    // Verificar autenticación
     if (AuthManager.checkAuth()) {
-        console.log('✅ Usuario autenticado encontrado');
+        console.log('✅ Admin autenticado encontrado');
         AuthManager.showMainApp();
     } else {
-        console.log('🔐 No hay usuario autenticado, mostrando login');
+        console.log('🔐 Mostrando login admin');
         AuthManager.showLoginView();
     }
 
-    // Inicializar event listeners
     try {
         EventHandlers.init();
         console.log('✅ Aplicación inicializada correctamente');
     } catch (error) {
-        console.error('❌ Error al inicializar event handlers:', error);
+        console.error('❌ Error al inicializar:', error);
     }
 }
 
-// Iniciar cuando el DOM esté listo
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initApp);
 } else {
