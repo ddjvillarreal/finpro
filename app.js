@@ -1,100 +1,10 @@
-// Configuración de la aplicación - ACTUALIZA CON TU NUEVA URL
+// Configuración de la aplicación
 const CONFIG = {
-    API_URL: 'https://script.google.com/macros/s/AKfycbw1EwEVkeEQmTaxrcJhOz1WoZ8dU2mi1BfvQYs9bKdrYbKUmWFty85eAZcYA0gI86XS/exec', // ← ACTUALIZA ESTO!
+    API_URL: 'https://script.google.com/macros/s/AKfycbw1EwEVkeEQmTaxrcJhOz1WoZ8dU2mi1BfvQYs9bKdrYbKUmWFty85eAZcYA0gI86XS/exec',
     APP_NAME: 'FinPro',
     VERSION: '2.0.0'
 };
 
-// Servicio de API - VERSIÓN SIMPLIFICADA Y ROBUSTA
-const ApiService = {
-    async request(action, data = {}) {
-        try {
-            console.log(`📡 Enviando: ${action}`, data);
-            
-            // Construir URL con parámetros para evitar problemas CORS
-            const url = `${CONFIG.API_URL}?action=${action}&timestamp=${Date.now()}`;
-            
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    action: action,
-                    data: {
-                        ...data,
-                        token: AppState.token
-                    }
-                })
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-
-            const result = await response.json();
-            
-            if (!result.success) {
-                throw new Error(result.error || 'Error en el servidor');
-            }
-
-            return result.data;
-            
-        } catch (error) {
-            console.error('❌ Error API:', error);
-            
-            let userMessage = error.message;
-            if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-                userMessage = '🌐 Error de red: No se puede conectar al servidor. ' +
-                            'Verifica:\n' +
-                            '• Tu conexión a internet\n' +
-                            '• Que Google Apps Script esté publicado correctamente\n' +
-                            '• Que la URL de la API sea la correcta';
-            }
-            
-            Utils.showNotification(userMessage, 'error');
-            throw error;
-        }
-    },
-
-    // Las demás funciones se mantienen igual...
-    async login(email, password) {
-        return this.request('login', { email, password });
-    },
-
-    async register(userData) {
-        return this.request('register', userData);
-    },
-
-    async getDashboard() {
-        return this.request('get-dashboard');
-    },
-
-    async saveTransaction(transaction) {
-        return this.request('save-transaction', transaction);
-    },
-
-    async getTransactions() {
-        return this.request('get-transactions');
-    },
-
-    async saveAccount(account) {
-        return this.request('save-account', account);
-    },
-
-    async getAccounts() {
-        return this.request('get-accounts');
-    },
-
-    async getCategories() {
-        return this.request('get-categories');
-    },
-
-    // Nueva función para probar CORS
-    async testCors() {
-        return this.request('test-cors', {});
-    }
-};
 // Estado global de la aplicación
 let AppState = {
     user: null,
@@ -148,7 +58,7 @@ const Utils = {
             <div class="notification-content">
                 <span class="notification-icon">${icons[type] || icons.info}</span>
                 <span class="notification-message">${message}</span>
-                <button class="notification-close" onclick="this.parentElement.parentElement.remove()">×</button>
+                <button class="notification-close">×</button>
             </div>
         `;
 
@@ -197,6 +107,10 @@ const Utils = {
             justify-content: center;
         `;
 
+        closeBtn.addEventListener('click', () => {
+            notification.remove();
+        });
+
         document.body.appendChild(notification);
         
         // Auto-remover después de 6 segundos
@@ -225,7 +139,7 @@ const Utils = {
     }
 };
 
-// Servicio de API - MEJORADO CON DIAGNÓSTICO DE CONEXIÓN
+// Servicio de API - VERSIÓN CORREGIDA
 const ApiService = {
     async request(action, data = {}) {
         try {
@@ -236,18 +150,22 @@ const ApiService = {
                 throw new Error('🔌 No hay conexión a internet. Verifica tu conexión.');
             }
             
+            const requestData = {
+                action: action,
+                data: data
+            };
+
+            // Si hay token, lo agregamos (excepto para login y register)
+            if (AppState.token && action !== 'login' && action !== 'register') {
+                requestData.data.token = AppState.token;
+            }
+            
             const response = await fetch(CONFIG.API_URL, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    action: action,
-                    data: {
-                        ...data,
-                        token: AppState.token
-                    }
-                })
+                body: JSON.stringify(requestData)
             });
 
             if (!response.ok) {
@@ -314,28 +232,6 @@ const ApiService = {
 
             Utils.showNotification(userFriendlyMessage, 'error');
             throw error;
-        }
-    },
-
-    // Función para probar conexión
-    async testConnection() {
-        try {
-            console.log('🧪 Probando conexión con API...');
-            const response = await fetch(CONFIG.API_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    action: 'test-connection',
-                    data: {}
-                })
-            });
-            
-            const result = await response.json();
-            return result.success ? '✅ Conexión exitosa' : '❌ Error: ' + result.error;
-        } catch (error) {
-            return '❌ Error de conexión: ' + error.message;
         }
     },
 
@@ -409,9 +305,6 @@ const ApiService = {
         return this.request('get-categories');
     }
 };
-
-// El resto del código de app.js se mantiene IGUAL...
-// [TODO EL CÓDIGO RESTANTE DE app.js QUE YA TENÍAS]
 
 // Gestión de Autenticación
 const AuthManager = {
@@ -531,9 +424,6 @@ const AuthManager = {
         }
     }
 };
-
-// [CONTINÚA CON EL RESTO DEL CÓDIGO ORIGINAL DE app.js...]
-// Gestión de Datos, Navegación, Modales, EventHandlers, etc.
 
 // Gestión de Datos
 const DataManager = {
@@ -832,9 +722,12 @@ const ModalManager = {
         document.getElementById('transaction-date').value = today;
         
         // Actualizar categorías según tipo seleccionado
-        document.getElementById('transaction-type').addEventListener('change', function() {
-            DataManager.updateCategoriesSelect();
-        });
+        const typeSelect = document.getElementById('transaction-type');
+        if (typeSelect) {
+            typeSelect.addEventListener('change', function() {
+                DataManager.updateCategoriesSelect();
+            });
+        }
         
         // Inicializar categorías
         DataManager.updateCategoriesSelect();
@@ -848,8 +741,11 @@ const ModalManager = {
 
     // Limpiar formularios
     clearForms() {
-        document.getElementById('transaction-form').reset();
-        document.getElementById('account-form').reset();
+        const transactionForm = document.getElementById('transaction-form');
+        const accountForm = document.getElementById('account-form');
+        
+        if (transactionForm) transactionForm.reset();
+        if (accountForm) accountForm.reset();
     }
 };
 
@@ -866,33 +762,45 @@ const EventHandlers = {
     // Eventos de autenticación
     initAuthEvents() {
         // Login
-        document.getElementById('login-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const email = document.getElementById('login-email').value;
-            const password = document.getElementById('login-password').value;
-            await AuthManager.login(email, password);
-        });
+        const loginForm = document.getElementById('login-form');
+        if (loginForm) {
+            loginForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const email = document.getElementById('login-email').value;
+                const password = document.getElementById('login-password').value;
+                await AuthManager.login(email, password);
+            });
+        }
 
         // Registro
-        document.getElementById('register-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const userData = {
-                name: document.getElementById('register-name').value,
-                email: document.getElementById('register-email').value,
-                password: document.getElementById('register-password').value
-            };
-            await AuthManager.register(userData);
-        });
+        const registerForm = document.getElementById('register-form');
+        if (registerForm) {
+            registerForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const userData = {
+                    name: document.getElementById('register-name').value,
+                    email: document.getElementById('register-email').value,
+                    password: document.getElementById('register-password').value
+                };
+                await AuthManager.register(userData);
+            });
+        }
 
         // Alternar entre login/registro
-        document.getElementById('toggle-auth').addEventListener('click', () => {
-            AuthManager.toggleAuthMode();
-        });
+        const toggleAuth = document.getElementById('toggle-auth');
+        if (toggleAuth) {
+            toggleAuth.addEventListener('click', () => {
+                AuthManager.toggleAuthMode();
+            });
+        }
 
         // Logout
-        document.getElementById('logout-btn').addEventListener('click', () => {
-            AuthManager.logout();
-        });
+        const logoutBtn = document.getElementById('logout-btn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', () => {
+                AuthManager.logout();
+            });
+        }
     },
 
     // Eventos de navegación
@@ -920,38 +828,44 @@ const EventHandlers = {
     // Eventos de formularios
     initFormEvents() {
         // Formulario de transacción
-        document.getElementById('transaction-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const formData = {
-                type: document.getElementById('transaction-type').value,
-                accountId: document.getElementById('transaction-account').value,
-                category: document.getElementById('transaction-category').value,
-                amount: parseFloat(document.getElementById('transaction-amount').value),
-                description: document.getElementById('transaction-description').value,
-                date: document.getElementById('transaction-date').value
-            };
+        const transactionForm = document.getElementById('transaction-form');
+        if (transactionForm) {
+            transactionForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const formData = {
+                    type: document.getElementById('transaction-type').value,
+                    accountId: document.getElementById('transaction-account').value,
+                    category: document.getElementById('transaction-category').value,
+                    amount: parseFloat(document.getElementById('transaction-amount').value),
+                    description: document.getElementById('transaction-description').value,
+                    date: document.getElementById('transaction-date').value
+                };
 
-            if (await DataManager.addTransaction(formData)) {
-                ModalManager.closeModal();
-            }
-        });
+                if (await DataManager.addTransaction(formData)) {
+                    ModalManager.closeModal();
+                }
+            });
+        }
 
         // Formulario de cuenta
-        document.getElementById('account-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const formData = {
-                name: document.getElementById('account-name').value,
-                currency: document.getElementById('account-currency').value,
-                type: document.getElementById('account-type').value,
-                initialBalance: parseFloat(document.getElementById('account-balance').value)
-            };
+        const accountForm = document.getElementById('account-form');
+        if (accountForm) {
+            accountForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const formData = {
+                    name: document.getElementById('account-name').value,
+                    currency: document.getElementById('account-currency').value,
+                    type: document.getElementById('account-type').value,
+                    initialBalance: parseFloat(document.getElementById('account-balance').value)
+                };
 
-            if (await DataManager.addAccount(formData)) {
-                ModalManager.closeModal();
-            }
-        });
+                if (await DataManager.addAccount(formData)) {
+                    ModalManager.closeModal();
+                }
+            });
+        }
     }
 };
 
