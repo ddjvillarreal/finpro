@@ -2,7 +2,7 @@
 const CONFIG = {
     API_URL: 'https://script.google.com/macros/s/AKfycbwJt5Y7Ni7p77GuFT4Q56XqsF0Yq0Qn17ty1Z9YyknP-3MtiAErRS34qBv7Fy7_YaP6/exec',
     APP_NAME: 'FinPro Admin',
-    VERSION: '1.0.0'
+    VERSION: '2.0.0'
 };
 
 // Estado global de la aplicación
@@ -38,9 +38,7 @@ const Utils = {
     },
 
     showNotification(message, type = 'info') {
-        // Remover notificaciones existentes
-        const existingNotifications = document.querySelectorAll('.notification');
-        existingNotifications.forEach(n => n.remove());
+        document.querySelectorAll('.notification').forEach(n => n.remove());
 
         const notification = document.createElement('div');
         notification.className = `notification notification-${type}`;
@@ -60,7 +58,6 @@ const Utils = {
             </div>
         `;
 
-        // Estilos para la notificación
         Object.assign(notification.style, {
             position: 'fixed',
             top: '20px',
@@ -81,11 +78,8 @@ const Utils = {
 
         document.body.appendChild(notification);
         
-        // Auto-remover después de 6 segundos
         setTimeout(() => {
-            if (notification.parentElement) {
-                notification.remove();
-            }
+            if (notification.parentElement) notification.remove();
         }, 6000);
     },
 
@@ -105,58 +99,69 @@ const Utils = {
     }
 };
 
-// Servicio de API
+// Servicio de API - VERSIÓN CON JSONP
 const ApiService = {
     async request(action, data = {}) {
-        try {
-            console.log(`📡 Enviando solicitud: ${action}`, data);
-            
-            // Verificar conexión a internet
-            if (!navigator.onLine) {
-                throw new Error('🔌 No hay conexión a internet. Verifica tu conexión.');
-            }
-            
-            const requestData = {
-                action: action,
-                data: data
-            };
+        return new Promise((resolve, reject) => {
+            try {
+                console.log(`📡 Enviando solicitud: ${action}`, data);
+                
+                if (!navigator.onLine) {
+                    throw new Error('🔌 No hay conexión a internet');
+                }
+                
+                const requestData = {
+                    action: action,
+                    data: data
+                };
 
-            // Solo agregar token si existe y no es login
-            if (AppState.token && action !== 'admin-login') {
-                requestData.data.token = AppState.token;
+                if (AppState.token && action !== 'admin-login') {
+                    requestData.data.token = AppState.token;
+                }
+                
+                // Crear un callback único para JSONP
+                const callbackName = 'jsonp_callback_' + Math.round(100000 * Math.random());
+                
+                // Configurar el callback global
+                window[callbackName] = function(response) {
+                    // Limpiar el callback
+                    delete window[callbackName];
+                    document.getElementById('jsonp-script').remove();
+                    
+                    if (response.success) {
+                        resolve(response.data);
+                    } else {
+                        reject(new Error(response.error || 'Error en el servidor'));
+                    }
+                };
+                
+                // Construir URL con parámetros
+                const params = new URLSearchParams();
+                params.append('action', action);
+                params.append('callback', callbackName);
+                
+                // Agregar datos como parámetro (para GET) o en el body (para POST)
+                const url = `${CONFIG.API_URL}?${params.toString()}`;
+                
+                // Crear script para JSONP
+                const script = document.createElement('script');
+                script.id = 'jsonp-script';
+                script.src = url;
+                
+                // Manejar errores
+                script.onerror = () => {
+                    reject(new Error('Error de conexión JSONP'));
+                };
+                
+                // Agregar script al documento
+                document.head.appendChild(script);
+                
+            } catch (error) {
+                console.error('❌ Error en API:', error);
+                Utils.showNotification(error.message, 'error');
+                reject(error);
             }
-            
-            const response = await fetch(CONFIG.API_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(requestData)
-            });
-
-            if (!response.ok) {
-                throw new Error(`Error HTTP: ${response.status}`);
-            }
-
-            const result = await response.json();
-            
-            if (!result.success) {
-                throw new Error(result.error || 'Error en el servidor');
-            }
-
-            return result.data;
-            
-        } catch (error) {
-            console.error('❌ Error en API:', error);
-            
-            let userMessage = error.message;
-            if (error.message.includes('Failed to fetch')) {
-                userMessage = 'Error de conexión. Verifica tu conexión a internet y que la URL de la API sea correcta.';
-            }
-
-            Utils.showNotification(userMessage, 'error');
-            throw error;
-        }
+        });
     },
 
     // Función para probar conexión
@@ -334,9 +339,7 @@ const AuthManager = {
         document.getElementById('user-name').textContent = AppState.user.name;
         document.getElementById('user-role').textContent = `(${AppState.user.role})`;
         
-        // Mostrar opción de cambiar contraseña en el header
         this.addPasswordChangeOption();
-        
         DataManager.loadInitialData();
     },
 
@@ -368,7 +371,6 @@ const DataManager = {
             this.updateAccountsSelect();
             this.updateCategoriesSelect();
             
-            // Si es admin, cargar lista de usuarios
             if (AppState.user.role === 'admin') {
                 await this.loadUsers();
             }
@@ -816,7 +818,6 @@ function closeModal() {
 function initApp() {
     console.log('🚀 Inicializando FinPro Admin...');
     
-    // Verificar autenticación
     if (AuthManager.checkAuth()) {
         console.log('✅ Usuario autenticado encontrado');
         AuthManager.showMainApp();
@@ -825,7 +826,6 @@ function initApp() {
         AuthManager.showLoginView();
     }
 
-    // Inicializar event listeners
     try {
         EventHandlers.init();
         console.log('✅ Aplicación inicializada correctamente');
