@@ -99,7 +99,7 @@ const Utils = {
     }
 };
 
-// Servicio de API - VERSIÓN MEJORADA CON FETCH
+// Servicio de API - VERSIÓN MEJORADA CON FETCH Y JSONP
 const ApiService = {
     async request(action, data = {}) {
         try {
@@ -234,7 +234,7 @@ const ApiService = {
         }
     },
 
-    // El resto de métodos permanecen igual...
+    // Autenticación Admin
     async adminLogin(email, password) {
         if (!email || !password) {
             throw new Error('Email y contraseña son requeridos');
@@ -251,8 +251,6 @@ const ApiService = {
         return this.request('change-admin-password', { currentPassword, newPassword });
     },
 
-    // ... resto de métodos igual
-};
     // Gestión de Usuarios
     async createUser(userData) {
         if (!userData.email || !userData.password || !userData.name) {
