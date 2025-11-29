@@ -38,6 +38,7 @@ const Utils = {
     },
 
     showNotification(message, type = 'info') {
+        // Eliminar notificaciones existentes
         document.querySelectorAll('.notification').forEach(n => n.remove());
 
         const notification = document.createElement('div');
@@ -58,6 +59,7 @@ const Utils = {
             </div>
         `;
 
+        // Estilos inline para la notificación
         Object.assign(notification.style, {
             position: 'fixed',
             top: '20px',
@@ -69,8 +71,7 @@ const Utils = {
             boxShadow: '0 10px 15px -3px rgba(0,0,0,0.3)',
             zIndex: '10000',
             maxWidth: '400px',
-            minWidth: '300px',
-            borderLeft: `4px solid ${type === 'error' ? '#dc2626' : type === 'success' ? '#059669' : type === 'warning' ? '#d97706' : '#2563eb'}`
+            minWidth: '300px'
         });
 
         const closeBtn = notification.querySelector('.notification-close');
@@ -78,8 +79,11 @@ const Utils = {
 
         document.body.appendChild(notification);
         
+        // Auto-remover después de 6 segundos
         setTimeout(() => {
-            if (notification.parentElement) notification.remove();
+            if (notification.parentElement) {
+                notification.remove();
+            }
         }, 6000);
     },
 
@@ -91,15 +95,10 @@ const Utils = {
             loadingEl.classList.add('hidden');
         }
         AppState.loading = loading;
-    },
-
-    isValidEmail(email) {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return emailRegex.test(email);
     }
 };
 
-// Servicio de API - VERSIÓN MEJORADA CON FETCH Y JSONP
+// Servicio de API - VERSIÓN SIMPLIFICADA
 const ApiService = {
     async request(action, data = {}) {
         try {
@@ -109,154 +108,105 @@ const ApiService = {
                 throw new Error('🔌 No hay conexión a internet');
             }
             
+            // Preparar datos
             const requestData = {
                 action: action,
                 data: data
             };
 
+            // Agregar token si existe
             if (AppState.token && action !== 'admin-login') {
                 requestData.data.token = AppState.token;
             }
             
-            // Usar fetch en lugar de JSONP
-            const response = await fetch(CONFIG.API_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(requestData)
-            });
-            
-            if (!response.ok) {
-                throw new Error(`Error HTTP: ${response.status}`);
-            }
-            
-            const result = await response.json();
-            
-            if (result.success) {
-                return result.data;
-            } else {
-                throw new Error(result.error || 'Error en el servidor');
-            }
+            // Usar JSONP como método principal (más compatible)
+            return await this.jsonpRequest(action, data);
             
         } catch (error) {
             console.error('❌ Error en API:', error);
-            
-            // Si falla fetch, intentar con JSONP como fallback
-            if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-                console.log('🔄 Intentando con JSONP como fallback...');
-                return this.jsonpRequest(action, data);
-            }
-            
             Utils.showNotification(error.message, 'error');
             throw error;
         }
     },
 
-    // Fallback con JSONP
+    // JSONP Request
     jsonpRequest(action, data = {}) {
         return new Promise((resolve, reject) => {
-            try {
-                const callbackName = 'jsonp_callback_' + Math.round(100000 * Math.random());
-                const timeoutId = setTimeout(() => {
-                    cleanup();
-                    reject(new Error('Timeout en conexión JSONP'));
-                }, 10000);
-                
-                // Configurar callback
-                window[callbackName] = function(response) {
-                    cleanup();
-                    if (response.success) {
-                        resolve(response.data);
-                    } else {
-                        reject(new Error(response.error || 'Error en el servidor'));
-                    }
-                };
-                
-                // Función de limpieza
-                function cleanup() {
-                    clearTimeout(timeoutId);
-                    delete window[callbackName];
-                    const script = document.getElementById('jsonp-script');
-                    if (script) script.remove();
+            const callbackName = 'jsonp_callback_' + Math.round(100000 * Math.random());
+            const timeoutId = setTimeout(() => {
+                cleanup();
+                reject(new Error('Timeout en conexión'));
+            }, 15000);
+            
+            // Configurar callback global
+            window[callbackName] = function(response) {
+                cleanup();
+                if (response && response.success) {
+                    resolve(response.data);
+                } else {
+                    reject(new Error(response.error || 'Error en el servidor'));
                 }
-                
-                // Construir URL
-                const params = new URLSearchParams();
-                params.append('action', action);
-                params.append('callback', callbackName);
-                
-                // Agregar datos
-                Object.keys(data).forEach(key => {
-                    if (data[key] !== undefined && data[key] !== null) {
-                        params.append(key, data[key]);
-                    }
-                });
-                
-                if (AppState.token && action !== 'admin-login') {
-                    params.append('token', AppState.token);
+            };
+            
+            function cleanup() {
+                clearTimeout(timeoutId);
+                delete window[callbackName];
+                const existingScript = document.getElementById('jsonp-script');
+                if (existingScript) {
+                    existingScript.remove();
                 }
-                
-                const url = `${CONFIG.API_URL}?${params.toString()}`;
-                
-                // Crear script
-                const script = document.createElement('script');
-                script.id = 'jsonp-script';
-                script.src = url;
-                script.onerror = () => {
-                    cleanup();
-                    reject(new Error('Error de conexión JSONP'));
-                };
-                
-                document.head.appendChild(script);
-                
-            } catch (error) {
-                reject(error);
             }
+            
+            // Construir URL
+            const params = new URLSearchParams();
+            params.append('action', action);
+            params.append('callback', callbackName);
+            
+            // Agregar datos
+            if (AppState.token && action !== 'admin-login') {
+                params.append('token', AppState.token);
+            }
+            
+            Object.keys(data).forEach(key => {
+                if (data[key] !== undefined && data[key] !== null) {
+                    params.append(key, data[key]);
+                }
+            });
+            
+            const url = `${CONFIG.API_URL}?${params.toString()}`;
+            
+            // Crear y agregar script
+            const script = document.createElement('script');
+            script.id = 'jsonp-script';
+            script.src = url;
+            script.onerror = () => {
+                cleanup();
+                reject(new Error('Error de conexión con el servidor'));
+            };
+            
+            document.head.appendChild(script);
         });
     },
 
-    // Función para probar conexión (mejorada)
+    // Métodos específicos
     async testConnection() {
         try {
-            // Primero intentar con fetch
-            try {
-                const result = await this.request('test-connection', {});
-                return '✅ Conexión exitosa: ' + (result.message || 'API funcionando');
-            } catch (fetchError) {
-                // Si fetch falla, intentar con JSONP directamente
-                console.log('🔄 Fetch falló, intentando JSONP...');
-                const result = await this.jsonpRequest('test-connection', {});
-                return '✅ Conexión JSONP exitosa: ' + (result.message || 'API funcionando');
-            }
+            const result = await this.request('test-connection', {});
+            return '✅ Conexión exitosa: ' + (result.message || 'API funcionando');
         } catch (error) {
             return '❌ Error de conexión: ' + error.message;
         }
     },
 
-    // Autenticación Admin
     async adminLogin(email, password) {
-        if (!email || !password) {
-            throw new Error('Email y contraseña son requeridos');
-        }
-        
         return this.request('admin-login', { email, password });
     },
 
     async changeAdminPassword(currentPassword, newPassword) {
-        if (!currentPassword || !newPassword) {
-            throw new Error('Ambas contraseñas son requeridas');
-        }
-        
         return this.request('change-admin-password', { currentPassword, newPassword });
     },
 
-    // Gestión de Usuarios
     async createUser(userData) {
-        if (!userData.email || !userData.password || !userData.name) {
-            throw new Error('Todos los campos son requeridos');
-        }
-        
         return this.request('create-user', userData);
     },
 
@@ -268,16 +218,11 @@ const ApiService = {
         return this.request('update-user', { userId, ...updates });
     },
 
-    // Datos Financieros
     async getDashboard() {
         return this.request('get-dashboard');
     },
 
     async saveTransaction(transaction) {
-        if (!transaction.type || !transaction.accountId || !transaction.amount) {
-            throw new Error('Tipo, cuenta y monto son requeridos');
-        }
-        
         return this.request('save-transaction', transaction);
     },
 
@@ -286,10 +231,6 @@ const ApiService = {
     },
 
     async saveAccount(account) {
-        if (!account.name || !account.currency || !account.type) {
-            throw new Error('Nombre, moneda y tipo son requeridos');
-        }
-        
         return this.request('save-account', account);
     },
 
@@ -305,31 +246,35 @@ const ApiService = {
 // Gestión de Autenticación
 const AuthManager = {
     checkAuth() {
-        const token = localStorage.getItem('finpro_admin_token');
-        const user = localStorage.getItem('finpro_admin_user');
-        
-        if (token && user) {
-            try {
+        try {
+            const token = localStorage.getItem('finpro_admin_token');
+            const user = localStorage.getItem('finpro_admin_user');
+            
+            if (token && user) {
                 AppState.token = token;
                 AppState.user = JSON.parse(user);
+                console.log('✅ Usuario encontrado en localStorage:', AppState.user.name);
                 return true;
-            } catch (error) {
-                console.error('Error parsing stored user data:', error);
-                this.logout();
-                return false;
             }
+            return false;
+        } catch (error) {
+            console.error('Error checking auth:', error);
+            this.logout();
+            return false;
         }
-        return false;
     },
 
     async adminLogin(email, password) {
         try {
             Utils.setLoading(true);
+            console.log('🔐 Intentando login con:', email);
+            
             const result = await ApiService.adminLogin(email, password);
             
             AppState.user = result.user;
             AppState.token = result.token;
             
+            // Guardar en localStorage
             localStorage.setItem('finpro_admin_token', result.token);
             localStorage.setItem('finpro_admin_user', JSON.stringify(result.user));
             
@@ -344,6 +289,7 @@ const AuthManager = {
             return true;
         } catch (error) {
             console.error('Error en login:', error);
+            Utils.showNotification('Error en login: ' + error.message, 'error');
             return false;
         } finally {
             Utils.setLoading(false);
@@ -361,7 +307,7 @@ const AuthManager = {
             
             Utils.showNotification('✅ Contraseña actualizada correctamente', 'success');
             
-            // Actualizar estado del usuario
+            // Actualizar estado
             AppState.user.firstLogin = false;
             localStorage.setItem('finpro_admin_user', JSON.stringify(AppState.user));
             
@@ -378,12 +324,10 @@ const AuthManager = {
     logout() {
         AppState.user = null;
         AppState.token = null;
-        AppState.dashboardData = null;
-        
         localStorage.removeItem('finpro_admin_token');
         localStorage.removeItem('finpro_admin_user');
         
-        Utils.showNotification('👋 Sesión cerrada correctamente', 'info');
+        Utils.showNotification('👋 Sesión cerrada', 'info');
         this.showLoginView();
     },
 
@@ -396,22 +340,24 @@ const AuthManager = {
         document.getElementById('login-view').classList.remove('active');
         document.getElementById('main-view').classList.add('active');
         
-        document.getElementById('user-name').textContent = AppState.user.name;
-        document.getElementById('user-role').textContent = `(${AppState.user.role})`;
+        // Actualizar UI
+        if (AppState.user) {
+            document.getElementById('user-name').textContent = AppState.user.name;
+            document.getElementById('user-role').textContent = `(${AppState.user.role})`;
+        }
         
-        this.addPasswordChangeOption();
+        // Mostrar botón de cambio de contraseña si es primer login
+        if (AppState.user && AppState.user.firstLogin) {
+            const changePassBtn = document.getElementById('change-password-btn');
+            if (changePassBtn) changePassBtn.style.display = 'block';
+        }
+        
+        // Cargar datos iniciales
         DataManager.loadInitialData();
     },
 
     showChangePasswordModal() {
         showModal('change-password-modal');
-    },
-
-    addPasswordChangeOption() {
-        const changePassBtn = document.getElementById('change-password-btn');
-        if (changePassBtn) {
-            changePassBtn.style.display = 'block';
-        }
     }
 };
 
@@ -428,8 +374,7 @@ const DataManager = {
             AppState.categories = dashboardData.categories || [];
             
             this.renderDashboard();
-            this.updateAccountsSelect();
-            this.updateCategoriesSelect();
+            this.updateFormSelects();
             
             if (AppState.user.role === 'admin') {
                 await this.loadUsers();
@@ -445,6 +390,7 @@ const DataManager = {
         const data = AppState.dashboardData;
         if (!data) return;
 
+        // Actualizar resumen
         document.getElementById('total-balance').textContent = 
             Utils.formatMoney(data.summary?.total_balance || 0);
         document.getElementById('monthly-income').textContent = 
@@ -452,6 +398,7 @@ const DataManager = {
         document.getElementById('monthly-expenses').textContent = 
             Utils.formatMoney(data.summary?.monthly_expenses || 0);
 
+        // Renderizar cuentas y transacciones
         this.renderAccounts(data.accounts, 'accounts-list');
         this.renderTransactions(data.recentTransactions, 'recent-transactions');
     },
@@ -479,7 +426,7 @@ const DataManager = {
     renderTransactions(transactions, containerId) {
         const container = document.getElementById(containerId);
         if (!transactions || transactions.length === 0) {
-            container.innerHTML = '<div class="no-data">No hay movimientos recientes</div>';
+            container.innerHTML = '<div class="no-data">No hay movimientos</div>';
             return;
         }
 
@@ -514,7 +461,7 @@ const DataManager = {
     renderUsers(users) {
         const container = document.getElementById('users-list');
         if (!users || users.length === 0) {
-            container.innerHTML = '<div class="no-data">No hay usuarios registrados</div>';
+            container.innerHTML = '<div class="no-data">No hay usuarios</div>';
             return;
         }
 
@@ -523,7 +470,7 @@ const DataManager = {
                 <div class="user-info">
                     <h4>${user.name} <span class="user-role-badge">${user.role}</span></h4>
                     <p>${user.email}</p>
-                    <p class="user-permissions">${user.canEdit ? 'Puede editar finanzas' : 'Solo lectura'}</p>
+                    <p class="user-permissions">${user.canEdit ? 'Puede editar' : 'Solo lectura'}</p>
                 </div>
                 <div class="user-actions">
                     <button class="btn-icon" onclick="DataManager.toggleUserEdit('${user.id}', ${!user.canEdit})" 
@@ -535,24 +482,37 @@ const DataManager = {
         `).join('');
     },
 
-    async toggleUserEdit(userId, canEdit) {
-        try {
-            Utils.setLoading(true);
-            await ApiService.updateUser(userId, { canEdit });
-            Utils.showNotification('✅ Permisos actualizados correctamente', 'success');
-            await this.loadUsers();
-        } catch (error) {
-            Utils.showNotification(error.message, 'error');
-        } finally {
-            Utils.setLoading(false);
+    updateFormSelects() {
+        // Actualizar select de cuentas
+        const accountSelect = document.getElementById('transaction-account');
+        if (accountSelect) {
+            accountSelect.innerHTML = AppState.accounts.map(account => 
+                `<option value="${account.id}">${account.name} (${account.currency})</option>`
+            ).join('');
         }
+        
+        // Actualizar select de categorías
+        this.updateCategoriesSelect();
     },
 
+    updateCategoriesSelect() {
+        const categorySelect = document.getElementById('transaction-category');
+        if (!categorySelect) return;
+
+        const type = document.getElementById('transaction-type')?.value || 'expense';
+        const filtered = AppState.categories.filter(cat => cat.type === type);
+        
+        categorySelect.innerHTML = filtered.map(cat => 
+            `<option value="${cat.name}">${cat.name}</option>`
+        ).join('');
+    },
+
+    // Métodos para crear datos
     async createUser(userData) {
         try {
             Utils.setLoading(true);
             await ApiService.createUser(userData);
-            Utils.showNotification('✅ Usuario creado exitosamente', 'success');
+            Utils.showNotification('✅ Usuario creado', 'success');
             await this.loadUsers();
             return true;
         } catch (error) {
@@ -563,335 +523,250 @@ const DataManager = {
         }
     },
 
-    updateAccountsSelect() {
-        const select = document.getElementById('transaction-account');
-        if (!select) return;
-
-        select.innerHTML = AppState.accounts.map(account => `
-            <option value="${account.id}">${account.name} (${account.currency})</option>
-        `).join('');
-    },
-
-    updateCategoriesSelect() {
-        const select = document.getElementById('transaction-category');
-        if (!select) return;
-
-        const transactionType = document.getElementById('transaction-type').value;
-        const filteredCategories = AppState.categories.filter(cat => cat.type === transactionType);
-        
-        select.innerHTML = filteredCategories.map(category => `
-            <option value="${category.name}">${category.name}</option>
-        `).join('');
-    },
-
-    async addTransaction(transactionData) {
+    async addTransaction(formData) {
         try {
             Utils.setLoading(true);
-            await ApiService.saveTransaction(transactionData);
-            Utils.showNotification('✅ Movimiento guardado exitosamente', 'success');
+            await ApiService.saveTransaction(formData);
+            Utils.showNotification('✅ Movimiento guardado', 'success');
             await this.loadInitialData();
             return true;
         } catch (error) {
+            Utils.showNotification(error.message, 'error');
             return false;
         } finally {
             Utils.setLoading(false);
         }
     },
 
-    async addAccount(accountData) {
+    async addAccount(formData) {
         try {
             Utils.setLoading(true);
-            await ApiService.saveAccount(accountData);
-            Utils.showNotification('✅ Cuenta creada exitosamente', 'success');
+            await ApiService.saveAccount(formData);
+            Utils.showNotification('✅ Cuenta creada', 'success');
             await this.loadInitialData();
             return true;
         } catch (error) {
+            Utils.showNotification(error.message, 'error');
             return false;
         } finally {
             Utils.setLoading(false);
         }
     },
 
-    async loadTransactionsPage() {
+    async toggleUserEdit(userId, canEdit) {
         try {
             Utils.setLoading(true);
-            const transactions = await ApiService.getTransactions();
-            this.renderTransactions(transactions, 'all-transactions');
+            await ApiService.updateUser(userId, { canEdit });
+            Utils.showNotification('✅ Permisos actualizados', 'success');
+            await this.loadUsers();
         } catch (error) {
-            console.error('Error loading transactions:', error);
-        } finally {
-            Utils.setLoading(false);
-        }
-    },
-
-    async loadAccountsPage() {
-        try {
-            Utils.setLoading(true);
-            const accounts = await ApiService.getAccounts();
-            this.renderAccounts(accounts, 'all-accounts');
-        } catch (error) {
-            console.error('Error loading accounts:', error);
+            Utils.showNotification(error.message, 'error');
         } finally {
             Utils.setLoading(false);
         }
     }
 };
 
-// Gestión de Navegación
+// Navegación
 const NavigationManager = {
     switchPage(page) {
-        AppState.currentView = page;
-        
+        // Actualizar navegación
         document.querySelectorAll('.nav-item').forEach(item => {
             item.classList.remove('active');
         });
         document.querySelector(`[data-page="${page}"]`).classList.add('active');
         
+        // Actualizar páginas
         document.querySelectorAll('.page').forEach(pageEl => {
             pageEl.classList.remove('active');
         });
         document.getElementById(`${page}-page`).classList.add('active');
         
+        // Actualizar título
         const titles = {
             dashboard: 'Panel Admin',
             users: 'Gestión de Usuarios',
             transactions: 'Movimientos',
             accounts: 'Cuentas'
         };
-        document.getElementById('current-page-title').textContent = titles[page];
+        document.getElementById('current-page-title').textContent = titles[page] || 'Panel Admin';
         
-        this.loadPageData(page);
-    },
-
-    loadPageData(page) {
-        switch (page) {
-            case 'transactions':
-                DataManager.loadTransactionsPage();
-                break;
-            case 'accounts':
-                DataManager.loadAccountsPage();
-                break;
-            case 'users':
-                DataManager.loadUsers();
-                break;
-            case 'dashboard':
-            default:
-                DataManager.renderDashboard();
-                break;
-        }
+        AppState.currentView = page;
     }
 };
 
-// Gestión de Modales
-const ModalManager = {
-    showModal(modalId) {
-        const modal = document.getElementById(modalId);
-        if (modal) {
-            modal.style.display = 'flex';
-            this.prepareModal(modalId);
-        }
-    },
-
-    closeModal() {
-        document.querySelectorAll('.modal').forEach(modal => {
-            modal.style.display = 'none';
+// Inicialización de Eventos
+function initEventHandlers() {
+    // Login form
+    const loginForm = document.getElementById('admin-login-form');
+    if (loginForm) {
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('admin-email').value;
+            const password = document.getElementById('admin-password').value;
+            await AuthManager.adminLogin(email, password);
         });
-        this.clearForms();
-    },
+    }
 
-    prepareModal(modalId) {
-        switch (modalId) {
-            case 'add-transaction-modal':
-                this.prepareTransactionModal();
-                break;
-            case 'add-account-modal':
-                this.prepareAccountModal();
-                break;
-        }
-    },
+    // Logout
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', () => AuthManager.logout());
+    }
 
-    prepareTransactionModal() {
-        const today = new Date().toISOString().split('T')[0];
-        document.getElementById('transaction-date').value = today;
-        
+    // Test connection
+    const testBtn = document.getElementById('test-connection-btn');
+    if (testBtn) {
+        testBtn.addEventListener('click', async () => {
+            Utils.setLoading(true);
+            const result = await ApiService.testConnection();
+            Utils.setLoading(false);
+            Utils.showNotification(result, result.includes('✅') ? 'success' : 'error');
+        });
+    }
+
+    // Navigation
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const page = item.getAttribute('data-page');
+            NavigationManager.switchPage(page);
+        });
+    });
+
+    // Modals
+    document.querySelectorAll('.modal').forEach(modal => {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closeModal();
+            }
+        });
+    });
+
+    // Form handlers
+    initFormHandlers();
+}
+
+function initFormHandlers() {
+    // Change password
+    const changePassForm = document.getElementById('change-password-form');
+    if (changePassForm) {
+        changePassForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const currentPassword = document.getElementById('current-password').value;
+            const newPassword = document.getElementById('new-password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+            await AuthManager.changePassword(currentPassword, newPassword, confirmPassword);
+        });
+    }
+
+    // Add user
+    const addUserForm = document.getElementById('add-user-form');
+    if (addUserForm) {
+        addUserForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = {
+                name: document.getElementById('user-name').value,
+                email: document.getElementById('user-email').value,
+                password: document.getElementById('user-password').value,
+                canEdit: document.getElementById('user-can-edit').checked
+            };
+            if (await DataManager.createUser(formData)) {
+                closeModal();
+            }
+        });
+    }
+
+    // Add transaction
+    const transactionForm = document.getElementById('transaction-form');
+    if (transactionForm) {
+        // Cambio de tipo actualiza categorías
         const typeSelect = document.getElementById('transaction-type');
         if (typeSelect) {
             typeSelect.addEventListener('change', () => {
                 DataManager.updateCategoriesSelect();
             });
         }
-        
-        DataManager.updateCategoriesSelect();
-    },
 
-    prepareAccountModal() {
-        document.getElementById('account-balance').value = '0.00';
-    },
-
-    clearForms() {
-        const forms = ['transaction-form', 'account-form', 'add-user-form', 'change-password-form'];
-        forms.forEach(formId => {
-            const form = document.getElementById(formId);
-            if (form) form.reset();
+        transactionForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = {
+                type: document.getElementById('transaction-type').value,
+                accountId: document.getElementById('transaction-account').value,
+                category: document.getElementById('transaction-category').value,
+                amount: parseFloat(document.getElementById('transaction-amount').value),
+                description: document.getElementById('transaction-description').value,
+                date: document.getElementById('transaction-date').value
+            };
+            if (await DataManager.addTransaction(formData)) {
+                closeModal();
+            }
         });
     }
-};
 
-// Manejadores de Eventos
-const EventHandlers = {
-    init() {
-        this.initAuthEvents();
-        this.initNavigationEvents();
-        this.initModalEvents();
-        this.initFormEvents();
-    },
-
-    initAuthEvents() {
-        // Login Admin
-        const loginForm = document.getElementById('admin-login-form');
-        if (loginForm) {
-            loginForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const email = document.getElementById('admin-email').value;
-                const password = document.getElementById('admin-password').value;
-                await AuthManager.adminLogin(email, password);
-            });
-        }
-
-        // Cambio de contraseña
-        const changePassForm = document.getElementById('change-password-form');
-        if (changePassForm) {
-            changePassForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const currentPassword = document.getElementById('current-password').value;
-                const newPassword = document.getElementById('new-password').value;
-                const confirmPassword = document.getElementById('confirm-password').value;
-                await AuthManager.changePassword(currentPassword, newPassword, confirmPassword);
-            });
-        }
-
-        // Logout
-        const logoutBtn = document.getElementById('logout-btn');
-        if (logoutBtn) {
-            logoutBtn.addEventListener('click', () => {
-                AuthManager.logout();
-            });
-        }
-
-        // Test connection
-        const testConnectionBtn = document.getElementById('test-connection-btn');
-        if (testConnectionBtn) {
-            testConnectionBtn.addEventListener('click', async () => {
-                Utils.setLoading(true);
-                const result = await ApiService.testConnection();
-                Utils.setLoading(false);
-                Utils.showNotification(result, result.includes('✅') ? 'success' : 'error');
-            });
-        }
-    },
-
-    initNavigationEvents() {
-        document.querySelectorAll('.nav-item').forEach(item => {
-            item.addEventListener('click', () => {
-                const page = item.getAttribute('data-page');
-                NavigationManager.switchPage(page);
-            });
+    // Add account
+    const accountForm = document.getElementById('account-form');
+    if (accountForm) {
+        accountForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = {
+                name: document.getElementById('account-name').value,
+                currency: document.getElementById('account-currency').value,
+                type: document.getElementById('account-type').value,
+                initialBalance: parseFloat(document.getElementById('account-balance').value)
+            };
+            if (await DataManager.addAccount(formData)) {
+                closeModal();
+            }
         });
-    },
-
-    initModalEvents() {
-        document.querySelectorAll('.modal').forEach(modal => {
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) {
-                    ModalManager.closeModal();
-                }
-            });
-        });
-    },
-
-    initFormEvents() {
-        // Formulario de transacción
-        const transactionForm = document.getElementById('transaction-form');
-        if (transactionForm) {
-            transactionForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const formData = {
-                    type: document.getElementById('transaction-type').value,
-                    accountId: document.getElementById('transaction-account').value,
-                    category: document.getElementById('transaction-category').value,
-                    amount: parseFloat(document.getElementById('transaction-amount').value),
-                    description: document.getElementById('transaction-description').value,
-                    date: document.getElementById('transaction-date').value
-                };
-                if (await DataManager.addTransaction(formData)) {
-                    closeModal();
-                }
-            });
-        }
-
-        // Formulario de cuenta
-        const accountForm = document.getElementById('account-form');
-        if (accountForm) {
-            accountForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const formData = {
-                    name: document.getElementById('account-name').value,
-                    currency: document.getElementById('account-currency').value,
-                    type: document.getElementById('account-type').value,
-                    initialBalance: parseFloat(document.getElementById('account-balance').value)
-                };
-                if (await DataManager.addAccount(formData)) {
-                    closeModal();
-                }
-            });
-        }
-
-        // Formulario de nuevo usuario
-        const addUserForm = document.getElementById('add-user-form');
-        if (addUserForm) {
-            addUserForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const formData = {
-                    name: document.getElementById('user-name').value,
-                    email: document.getElementById('user-email').value,
-                    password: document.getElementById('user-password').value,
-                    canEdit: document.getElementById('user-can-edit').checked
-                };
-                if (await DataManager.createUser(formData)) {
-                    closeModal();
-                }
-            });
-        }
     }
-};
+}
 
-// Funciones globales para onclick
+// Funciones globales para modales
 function showModal(modalId) {
-    ModalManager.showModal(modalId);
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.style.display = 'flex';
+        
+        // Preparar modal específico
+        if (modalId === 'add-transaction-modal') {
+            document.getElementById('transaction-date').value = new Date().toISOString().split('T')[0];
+            DataManager.updateCategoriesSelect();
+        } else if (modalId === 'add-account-modal') {
+            document.getElementById('account-balance').value = '0.00';
+        }
+    }
 }
 
 function closeModal() {
-    ModalManager.closeModal();
+    document.querySelectorAll('.modal').forEach(modal => {
+        modal.style.display = 'none';
+    });
+    
+    // Limpiar formularios
+    const forms = ['transaction-form', 'account-form', 'add-user-form', 'change-password-form'];
+    forms.forEach(formId => {
+        const form = document.getElementById(formId);
+        if (form) form.reset();
+    });
 }
 
-// Inicialización de la aplicación
+// Inicialización principal
 function initApp() {
     console.log('🚀 Inicializando FinPro Admin...');
     
+    // Verificar autenticación
     if (AuthManager.checkAuth()) {
-        console.log('✅ Usuario autenticado encontrado');
+        console.log('✅ Usuario autenticado');
         AuthManager.showMainApp();
     } else {
-        console.log('🔐 No hay usuario autenticado, mostrando login');
+        console.log('🔐 Mostrando login');
         AuthManager.showLoginView();
     }
-
-    try {
-        EventHandlers.init();
-        console.log('✅ Aplicación inicializada correctamente');
-    } catch (error) {
-        console.error('❌ Error al inicializar event handlers:', error);
-    }
+    
+    // Inicializar event handlers
+    initEventHandlers();
+    
+    console.log('✅ Aplicación inicializada');
 }
 
 // Iniciar cuando el DOM esté listo
