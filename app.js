@@ -1,8 +1,8 @@
-// Configuración de la aplicación
+// Configuración de la aplicación - CON TU URL
 const CONFIG = {
-    API_URL: 'https://script.google.com/macros/s/AKfycbyfGbp-r64fRN_rr-Pwls_7Y-4CpQfy7H62pUG31m2LWn2IOalcRcFK_Ut55Pwlbom-/exec', // ←
+    API_URL: 'https://script.google.com/macros/s/AKfycbyfGbp-r64fRN_rr-Pwls_7Y-4CpQfy7H62pUG31m2LWn2IOalcRcFK_Ut55Pwlbom-/exec',
     APP_NAME: 'FinPro',
-    VERSION: '1.0.0'
+    VERSION: '1.0.1'
 };
 
 // Estado global de la aplicación
@@ -45,6 +45,9 @@ const Utils = {
 
     // Mostrar notificación
     showNotification(message, type = 'info') {
+        // Remover notificaciones existentes
+        document.querySelectorAll('.notification').forEach(n => n.remove());
+
         const notification = document.createElement('div');
         notification.className = `notification notification-${type}`;
         notification.innerHTML = `
@@ -155,7 +158,7 @@ const ApiService = {
     }
 };
 
-// Gestión de Autenticación
+// Gestión de Autenticación - CORREGIDO
 const AuthManager = {
     // Verificar si hay sesión activa
     checkAuth() {
@@ -186,6 +189,7 @@ const AuthManager = {
             this.showMainApp();
             return true;
         } catch (error) {
+            Utils.showNotification('Credenciales incorrectas', 'error');
             return false;
         } finally {
             Utils.setLoading(false);
@@ -202,6 +206,7 @@ const AuthManager = {
             this.showLoginForm();
             return true;
         } catch (error) {
+            Utils.showNotification('Error al crear la cuenta: ' + error.message, 'error');
             return false;
         } finally {
             Utils.setLoading(false);
@@ -220,10 +225,29 @@ const AuthManager = {
         this.showLoginView();
     },
 
-    // Mostrar vista de login
+    // Mostrar vista de login - CORREGIDO
     showLoginView() {
         document.getElementById('login-view').classList.add('active');
         document.getElementById('main-view').classList.remove('active');
+        this.showLoginForm();
+    },
+
+    // Mostrar formulario de login específicamente
+    showLoginForm() {
+        document.getElementById('login-form').classList.remove('hidden');
+        document.getElementById('register-form').classList.add('hidden');
+        document.getElementById('toggle-auth').textContent = '¿No tienes cuenta? Regístrate';
+        
+        // Limpiar formularios
+        document.getElementById('login-form').reset();
+        document.getElementById('register-form').reset();
+    },
+
+    // Mostrar formulario de registro
+    showRegisterForm() {
+        document.getElementById('login-form').classList.add('hidden');
+        document.getElementById('register-form').classList.remove('hidden');
+        document.getElementById('toggle-auth').textContent = '¿Ya tienes cuenta? Inicia sesión';
     },
 
     // Mostrar aplicación principal
@@ -236,22 +260,12 @@ const AuthManager = {
         DataManager.loadInitialData();
     },
 
-    // Alternar entre login y registro
+    // Alternar entre login y registro - CORREGIDO
     toggleAuthMode() {
-        const loginForm = document.getElementById('login-form');
-        const registerForm = document.getElementById('register-form');
-        const toggleBtn = document.getElementById('toggle-auth');
-        
-        if (loginForm.classList.contains('hidden')) {
-            // Cambiar a login
-            loginForm.classList.remove('hidden');
-            registerForm.classList.add('hidden');
-            toggleBtn.textContent = '¿No tienes cuenta? Regístrate';
+        if (document.getElementById('login-form').classList.contains('hidden')) {
+            this.showLoginForm();
         } else {
-            // Cambiar a registro
-            loginForm.classList.add('hidden');
-            registerForm.classList.remove('hidden');
-            toggleBtn.textContent = '¿Ya tienes cuenta? Inicia sesión';
+            this.showRegisterForm();
         }
     }
 };
@@ -446,8 +460,6 @@ const DataManager = {
 
     // Cargar página de estadísticas
     loadStatsPage() {
-        // Por ahora solo mostramos placeholders
-        // En una versión futura aquí irían gráficos reales
         const expenseChart = document.getElementById('expense-chart');
         const flowChart = document.getElementById('flow-chart');
         
@@ -630,16 +642,6 @@ const EventHandlers = {
 
     // Eventos de modales
     initModalEvents() {
-        // Botones para abrir modales
-        document.querySelectorAll('[onclick^="showModal"]').forEach(button => {
-            const match = button.getAttribute('onclick').match(/showModal\('([^']+)'\)/);
-            if (match) {
-                button.addEventListener('click', () => {
-                    ModalManager.showModal(match[1]);
-                });
-            }
-        });
-
         // Cerrar modales al hacer clic fuera
         document.querySelectorAll('.modal').forEach(modal => {
             modal.addEventListener('click', (e) => {
@@ -708,13 +710,6 @@ function initApp() {
 
     // Inicializar event listeners
     EventHandlers.init();
-
-    // Configurar fecha actual en formularios
-    const today = new Date().toISOString().split('T')[0];
-    const dateInput = document.getElementById('transaction-date');
-    if (dateInput) {
-        dateInput.value = today;
-    }
 
     console.log(`${CONFIG.APP_NAME} v${CONFIG.VERSION} inicializada`);
 }
